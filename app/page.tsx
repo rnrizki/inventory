@@ -70,7 +70,13 @@ export default function Dashboard() {
             Enterprise Asset Management with Xprinter XP-420B Native Thermal Printing
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+            href="/assets/import"
+            className="inline-flex items-center gap-2 bg-white text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl text-sm font-bold shadow-md transition"
+          >
+            <Plus className="w-4 h-4" /> Add Asset in Bulk
+          </a>
           <button
             onClick={() => setIsAssetModalOpen(true)}
             className="inline-flex items-center gap-2 bg-white text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl text-sm font-bold shadow-md transition"

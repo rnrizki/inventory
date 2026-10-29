@@ -91,7 +91,7 @@ export default function AssetsPage() {
             href="/assets/import"
             className="inline-flex items-center gap-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3.5 py-2.5 rounded-xl text-sm font-bold shadow-xs transition"
           >
-            <Upload className="w-4 h-4 text-slate-500" /> Import CSV
+            <Plus className="w-4 h-4 text-slate-600" /> Add Asset in Bulk
           </a>
           <button
             onClick={() => {
