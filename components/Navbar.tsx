@@ -20,7 +20,6 @@ export default function Navbar() {
   const pathname = usePathname();
 
   const primaryLinks = [
-    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/assets', label: 'Assets', icon: Box },
     { href: '/scanner', label: 'QR Scanner', icon: ScanLine },
     { href: '/audits', label: 'Audits', icon: ClipboardCheck },
@@ -34,7 +33,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/95 backdrop-blur shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
-          <a href="/" className="flex items-center gap-2.5 font-bold text-slate-900 text-lg tracking-tight hover:opacity-90 transition">
+          <a href="/assets" className="flex items-center gap-2.5 font-bold text-slate-900 text-lg tracking-tight hover:opacity-90 transition">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
               <Box className="w-5 h-5" />
             </div>

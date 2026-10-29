@@ -1,7 +1,22 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Box, Plus, Search, Filter, Printer, Edit2, Trash2, ArrowUpDown, Eye, ExternalLink, Upload } from 'lucide-react';
+import {
+  Box,
+  Plus,
+  Search,
+  Filter,
+  Printer,
+  Edit2,
+  Trash2,
+  ArrowUpDown,
+  Eye,
+  ExternalLink,
+  Upload,
+  CheckCircle,
+  TrendingUp,
+  Layers,
+} from 'lucide-react';
 import TsplPrintModal from '@/components/TsplPrintModal';
 import AssetModal from '@/components/AssetModal';
 import { getStatusInfo } from '@/lib/status';
@@ -10,6 +25,7 @@ export default function AssetsPage() {
   const [assets, setAssets] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -22,6 +38,14 @@ export default function AssetsPage() {
   const [assetToEdit, setAssetToEdit] = useState<any>(null);
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
 
+  const formatRupiah = (val: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      maximumFractionDigits: 0,
+    }).format(val || 0);
+  };
+
   const fetchAssets = async () => {
     try {
       setLoading(true);
@@ -30,15 +54,17 @@ export default function AssetsPage() {
       if (selectedCategory) params.set('category', selectedCategory);
       if (selectedStatus) params.set('status', selectedStatus);
 
-      const [resAssets, resCats, resLocs] = await Promise.all([
+      const [resAssets, resCats, resLocs, resStats] = await Promise.all([
         fetch(`/api/assets?${params.toString()}`).then((r) => r.json()),
         fetch('/api/categories').then((r) => r.json()),
         fetch('/api/locations').then((r) => r.json()),
+        fetch('/api/stats').then((r) => r.json()),
       ]);
 
       if (resAssets.success) setAssets(resAssets.data);
       if (resCats.success) setCategories(resCats.data);
       if (resLocs.success) setLocations(resLocs.data);
+      if (resStats.success) setStats(resStats.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -102,6 +128,51 @@ export default function AssetsPage() {
           >
             <Plus className="w-4 h-4" /> Add Asset
           </button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+            <Box className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-slate-500 uppercase">Total Assets</div>
+            <div className="text-2xl font-black text-slate-900">{stats?.totalAssets ?? 0}</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+            <CheckCircle className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-slate-500 uppercase">Available</div>
+            <div className="text-2xl font-black text-slate-900">{stats?.available ?? 0}</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+            <TrendingUp className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-slate-500 uppercase">Total Value</div>
+            <div className="text-lg font-black text-slate-900 truncate max-w-[170px]" title={formatRupiah(stats?.totalValue)}>
+              {formatRupiah(stats?.totalValue)}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+            <Layers className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-slate-500 uppercase">Categories</div>
+            <div className="text-2xl font-black text-slate-900">{categories.length}</div>
+          </div>
         </div>
       </div>
 
