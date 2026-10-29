@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 import Navbar from '@/components/Navbar';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'SkyInventory — SkyConnection Asset & Inventory Management',
   description: 'Modern Asset Management with Native TSPL Thermal Printer (Xprinter XP-420B) support',
