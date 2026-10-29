@@ -1,0 +1,244 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Box, Plus, Search, Filter, Printer, Edit2, Trash2, ArrowUpDown } from 'lucide-react';
+import TsplPrintModal from '@/components/TsplPrintModal';
+import AssetModal from '@/components/AssetModal';
+
+export default function AssetsPage() {
+  const [assets, setAssets] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Filters
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
+
+  // Modals
+  const [selectedAssetForPrint, setSelectedAssetForPrint] = useState<any>(null);
+  const [assetToEdit, setAssetToEdit] = useState<any>(null);
+  const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+
+  const fetchAssets = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (search) params.set('q', search);
+      if (selectedCategory) params.set('category', selectedCategory);
+      if (selectedStatus) params.set('status', selectedStatus);
+
+      const [resAssets, resCats, resLocs] = await Promise.all([
+        fetch(`/api/assets?${params.toString()}`).then((r) => r.json()),
+        fetch('/api/categories').then((r) => r.json()),
+        fetch('/api/locations').then((r) => r.json()),
+      ]);
+
+      if (resAssets.success) setAssets(resAssets.data);
+      if (resCats.success) setCategories(resCats.data);
+      if (resLocs.success) setLocations(resLocs.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchAssets();
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [search, selectedCategory, selectedStatus]);
+
+  const handleDelete = async (id: number, name: string) => {
+    if (!confirm(`Are you sure you want to delete asset "${name}"?`)) return;
+    try {
+      const res = await fetch(`/api/assets/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        fetchAssets();
+      } else {
+        alert('Failed to delete asset: ' + data.error);
+      }
+    } catch (err) {
+      alert('Error deleting asset');
+    }
+  };
+
+  const getStatusBadge = (status: number) => {
+    switch (status) {
+      case 1:
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Available</span>;
+      case 2:
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">In Use</span>;
+      case 3:
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Maintenance</span>;
+      case 4:
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800">Retired</span>;
+      default:
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800">Available</span>;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Manage Assets</h1>
+          <p className="text-xs text-slate-500 mt-1">Daftar inventaris aset, pencarian, dan cetak label Xprinter</p>
+        </div>
+        <button
+          onClick={() => {
+            setAssetToEdit(null);
+            setIsAssetModalOpen(true);
+          }}
+          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition self-start sm:self-auto"
+        >
+          <Plus className="w-4 h-4" /> Add Asset
+        </button>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by asset name, serial, model, or supplier..."
+            className="w-full pl-9 pr-4 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+          />
+        </div>
+
+        <div className="flex gap-2">
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="text-xs px-3 py-2 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+          >
+            <option value="">All Categories</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="text-xs px-3 py-2 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+          >
+            <option value="">All Statuses</option>
+            <option value="1">Available</option>
+            <option value="2">In Use</option>
+            <option value="3">Maintenance</option>
+            <option value="4">Retired</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Main Table */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/75 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                <th className="py-3 px-4">#</th>
+                <th className="py-3 px-4">Asset Name</th>
+                <th className="py-3 px-4">Serial Number</th>
+                <th className="py-3 px-4">Specification / Model</th>
+                <th className="py-3 px-4">Category</th>
+                <th className="py-3 px-4">Location</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-sm">
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-slate-400">Loading assets...</td>
+                </tr>
+              ) : assets.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-slate-400">No assets found matching filters.</td>
+                </tr>
+              ) : (
+                assets.map((asset, idx) => (
+                  <tr key={asset.id} className="hover:bg-slate-50/60 transition">
+                    <td className="py-3.5 px-4 font-mono text-xs text-slate-400">{idx + 1}</td>
+                    <td className="py-3.5 px-4 font-bold text-slate-900">
+                      <div>{asset.asset_name}</div>
+                      <div className="text-xs text-slate-400 font-normal">{asset.supplier_name}</div>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-xs text-slate-600">{asset.serial_number || '-'}</td>
+                    <td className="py-3.5 px-4 text-xs text-slate-600 max-w-xs truncate" title={asset.model_number}>
+                      {asset.model_number || '-'}
+                    </td>
+                    <td className="py-3.5 px-4 text-xs font-medium text-slate-700">
+                      {asset.category_name || '-'}
+                    </td>
+                    <td className="py-3.5 px-4 text-xs text-slate-600">
+                      {asset.location_name || '-'}
+                    </td>
+                    <td className="py-3.5 px-4">{getStatusBadge(asset.asset_status)}</td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => setSelectedAssetForPrint(asset)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-xs transition"
+                          title="Print TSPL Thermal Label (Xprinter XP-420B)"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Print</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setAssetToEdit(asset);
+                            setIsAssetModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                          title="Edit Asset"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(asset.id, asset.asset_name)}
+                          className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                          title="Delete Asset"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* TSPL Print Modal */}
+      <TsplPrintModal
+        isOpen={Boolean(selectedAssetForPrint)}
+        onClose={() => setSelectedAssetForPrint(null)}
+        asset={selectedAssetForPrint}
+      />
+
+      {/* Add / Edit Modal */}
+      <AssetModal
+        isOpen={isAssetModalOpen}
+        onClose={() => setIsAssetModalOpen(false)}
+        onSaved={fetchAssets}
+        assetToEdit={assetToEdit}
+        categories={categories}
+        locations={locations}
+      />
+    </div>
+  );
+}
