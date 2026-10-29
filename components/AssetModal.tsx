@@ -8,8 +8,8 @@ interface Props {
   onClose: () => void;
   onSaved: () => void;
   assetToEdit?: any;
-  categories: any[];
-  locations: any[];
+  categories?: any[];
+  locations?: any[];
 }
 
 export default function AssetModal({
@@ -17,8 +17,8 @@ export default function AssetModal({
   onClose,
   onSaved,
   assetToEdit,
-  categories,
-  locations,
+  categories = [],
+  locations = [],
 }: Props) {
   if (!isOpen) return null;
 

@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Box, Plus, Search, Filter, Printer, Edit2, Trash2, ArrowUpDown } from 'lucide-react';
+import { Box, Plus, Search, Filter, Printer, Edit2, Trash2, ArrowUpDown, Eye, ExternalLink } from 'lucide-react';
 import TsplPrintModal from '@/components/TsplPrintModal';
 import AssetModal from '@/components/AssetModal';
+import { getStatusInfo } from '@/lib/status';
 
 export default function AssetsPage() {
   const [assets, setAssets] = useState<any[]>([]);
@@ -68,18 +69,13 @@ export default function AssetsPage() {
   };
 
   const getStatusBadge = (status: number) => {
-    switch (status) {
-      case 1:
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Available</span>;
-      case 2:
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">In Use</span>;
-      case 3:
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Maintenance</span>;
-      case 4:
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800">Retired</span>;
-      default:
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800">Available</span>;
-    }
+    const info = getStatusInfo(status);
+    return (
+      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${info.bg} ${info.color} ${info.border}`}>
+        <span>{info.icon}</span>
+        {info.name}
+      </span>
+    );
   };
 
   return (
@@ -172,7 +168,10 @@ export default function AssetsPage() {
                   <tr key={asset.id} className="hover:bg-slate-50/60 transition">
                     <td className="py-3.5 px-4 font-mono text-xs text-slate-400">{idx + 1}</td>
                     <td className="py-3.5 px-4 font-bold text-slate-900">
-                      <div>{asset.asset_name}</div>
+                      <a href={`/assets/${asset.id}`} className="hover:text-blue-600 transition inline-flex items-center gap-1 group">
+                        <span>{asset.asset_name}</span>
+                        <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-blue-600" />
+                      </a>
                       <div className="text-xs text-slate-400 font-normal">{asset.supplier_name}</div>
                     </td>
                     <td className="py-3.5 px-4 font-mono text-xs text-slate-600">{asset.serial_number || '-'}</td>
@@ -188,6 +187,14 @@ export default function AssetsPage() {
                     <td className="py-3.5 px-4">{getStatusBadge(asset.asset_status)}</td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        <a
+                          href={`/assets/${asset.id}`}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg shadow-xs transition"
+                          title="View Full Details (9 Tabs & Actions)"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View</span>
+                        </a>
                         <button
                           onClick={() => setSelectedAssetForPrint(asset)}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-xs transition"

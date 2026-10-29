@@ -163,7 +163,11 @@ export default function Dashboard() {
                 assets.slice(0, 10).map((asset, idx) => (
                   <tr key={asset.id} className="hover:bg-slate-50/60 transition">
                     <td className="py-3.5 px-4 font-mono text-xs text-slate-400">{idx + 1}</td>
-                    <td className="py-3.5 px-4 font-bold text-slate-900">{asset.asset_name}</td>
+                    <td className="py-3.5 px-4 font-bold text-slate-900">
+                      <a href={`/assets/${asset.id}`} className="hover:text-blue-600 transition">
+                        {asset.asset_name}
+                      </a>
+                    </td>
                     <td className="py-3.5 px-4 font-mono text-xs text-slate-600">{asset.serial_number || '-'}</td>
                     <td className="py-3.5 px-4 text-xs text-slate-600 max-w-xs truncate" title={asset.model_number}>
                       {asset.model_number || '-'}
@@ -173,14 +177,22 @@ export default function Dashboard() {
                     </td>
                     <td className="py-3.5 px-4">{getStatusBadge(asset.asset_status)}</td>
                     <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => setSelectedAssetForPrint(asset)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-xs transition"
-                        title="Print Native TSPL Thermal Label for Xprinter XP-420B"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                        <span>Print Label</span>
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <a
+                          href={`/assets/${asset.id}`}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg shadow-xs transition"
+                        >
+                          View Details
+                        </a>
+                        <button
+                          onClick={() => setSelectedAssetForPrint(asset)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-xs transition"
+                          title="Print Native TSPL Thermal Label for Xprinter XP-420B"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Print Label</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
