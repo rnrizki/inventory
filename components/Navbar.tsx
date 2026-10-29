@@ -13,6 +13,7 @@ import {
   TrendingDown,
   BarChart3,
   ScanLine,
+  Upload,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -20,7 +21,8 @@ export default function Navbar() {
 
   const primaryLinks = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/assets', label: 'Assets Management', icon: Box },
+    { href: '/assets', label: 'Assets', icon: Box },
+    { href: '/assets/import', label: 'Import CSV', icon: Upload },
     { href: '/scanner', label: 'QR Scanner', icon: ScanLine },
     { href: '/audits', label: 'Audits', icon: ClipboardCheck },
     { href: '/depreciation', label: 'Depreciation', icon: TrendingDown },

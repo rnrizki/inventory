@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Box, Plus, Search, Filter, Printer, Edit2, Trash2, ArrowUpDown, Eye, ExternalLink } from 'lucide-react';
+import { Box, Plus, Search, Filter, Printer, Edit2, Trash2, ArrowUpDown, Eye, ExternalLink, Upload } from 'lucide-react';
 import TsplPrintModal from '@/components/TsplPrintModal';
 import AssetModal from '@/components/AssetModal';
 import { getStatusInfo } from '@/lib/status';
@@ -86,15 +86,23 @@ export default function AssetsPage() {
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Manage Assets</h1>
           <p className="text-xs text-slate-500 mt-1">Daftar inventaris aset, pencarian, dan cetak label Xprinter</p>
         </div>
-        <button
-          onClick={() => {
-            setAssetToEdit(null);
-            setIsAssetModalOpen(true);
-          }}
-          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" /> Add Asset
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <a
+            href="/assets/import"
+            className="inline-flex items-center gap-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3.5 py-2.5 rounded-xl text-sm font-bold shadow-xs transition"
+          >
+            <Upload className="w-4 h-4 text-slate-500" /> Import CSV
+          </a>
+          <button
+            onClick={() => {
+              setAssetToEdit(null);
+              setIsAssetModalOpen(true);
+            }}
+            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition"
+          >
+            <Plus className="w-4 h-4" /> Add Asset
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar */}
