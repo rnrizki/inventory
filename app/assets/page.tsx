@@ -16,6 +16,7 @@ import {
   CheckCircle,
   TrendingUp,
   Layers,
+  User,
 } from 'lucide-react';
 import TsplPrintModal from '@/components/TsplPrintModal';
 import AssetModal from '@/components/AssetModal';
@@ -230,17 +231,18 @@ export default function AssetsPage() {
                 <th className="py-3 px-4">Category</th>
                 <th className="py-3 px-4">Location</th>
                 <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Assigned to</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">Loading assets...</td>
+                  <td colSpan={9} className="py-12 text-center text-slate-400">Loading assets...</td>
                 </tr>
               ) : assets.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">No assets found matching filters.</td>
+                  <td colSpan={9} className="py-12 text-center text-slate-400">No assets found matching filters.</td>
                 </tr>
               ) : (
                 assets.map((asset, idx) => (
@@ -264,6 +266,20 @@ export default function AssetsPage() {
                       {asset.location_name || '-'}
                     </td>
                     <td className="py-3.5 px-4">{getStatusBadge(asset.asset_status)}</td>
+                    <td className="py-3.5 px-4">
+                      {asset.assigned_to && asset.assigned_to.trim() !== '' ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200">
+                          <User className="w-3.5 h-3.5 text-slate-500" />
+                          <span className="truncate max-w-[140px]" title={asset.assigned_to}>
+                            {asset.assigned_to}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Available
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <a
