@@ -126,6 +126,9 @@ export async function verifyStalwartCredentials(
     return { success: false, error: 'Email and password are required' };
   }
 
+  const STALWART_INTERNAL_URL =
+    process.env.STALWART_URL || 'http://mail-stalwart-mmfbt9-stalwart-mail-1:8080';
+
   try {
     const authPayload = {
       type: 'authCode',
@@ -135,9 +138,10 @@ export async function verifyStalwartCredentials(
       redirectUri: 'https://mailserver.skyconnection.id/admin/oauth/callback',
     };
 
-    const res = await fetch('https://mailserver.skyconnection.id/api/auth', {
+    const res = await fetch(`${STALWART_INTERNAL_URL}/api/auth`, {
       method: 'POST',
       headers: {
+        Host: 'mailserver.skyconnection.id',
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },

@@ -11,6 +11,7 @@ export interface SyncResult {
 }
 
 export const SKYCONNECTION_REALM_ID = '0dadbdef-88eb-47be-8368-9ebf9fcf4f98';
+export const STALWART_INTERNAL_URL = process.env.STALWART_URL || 'http://mail-stalwart-mmfbt9-stalwart-mail-1:8080';
 
 // Obtain Stalwart JMAP token using admin credentials
 async function getStalwartToken(): Promise<string> {
@@ -22,9 +23,10 @@ async function getStalwartToken(): Promise<string> {
     redirectUri: 'https://mailserver.skyconnection.id/admin/oauth/callback',
   };
 
-  const authRes = await fetch('https://mailserver.skyconnection.id/api/auth', {
+  const authRes = await fetch(`${STALWART_INTERNAL_URL}/api/auth`, {
     method: 'POST',
     headers: {
+      Host: 'mailserver.skyconnection.id',
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
@@ -48,9 +50,10 @@ async function getStalwartToken(): Promise<string> {
     redirect_uri: 'https://mailserver.skyconnection.id/admin/oauth/callback',
   });
 
-  const tokenRes = await fetch('https://mailserver.skyconnection.id/auth/token', {
+  const tokenRes = await fetch(`${STALWART_INTERNAL_URL}/auth/token`, {
     method: 'POST',
     headers: {
+      Host: 'mailserver.skyconnection.id',
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: tokenParams.toString(),
@@ -68,9 +71,10 @@ async function getStalwartToken(): Promise<string> {
 async function fetchStalwartUsers(): Promise<Array<{ email: string; name: string; username: string }>> {
   const token = await getStalwartToken();
 
-  const jmapRes = await fetch('https://mailserver.skyconnection.id/jmap/', {
+  const jmapRes = await fetch(`${STALWART_INTERNAL_URL}/jmap/`, {
     method: 'POST',
     headers: {
+      Host: 'mailserver.skyconnection.id',
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
