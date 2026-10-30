@@ -4,7 +4,6 @@ import { Pool } from 'pg';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-  const results: any = {};
   const stalwartPool = new Pool({
     host: 'database-postgresql-fy9a1w',
     port: 5432,
@@ -15,34 +14,43 @@ export async function GET(request: Request) {
   });
 
   try {
-    for (const t of ['u', 'p', 'd', 'e', 'a']) {
-      try {
-        const cols = await stalwartPool.query(
-          `SELECT column_name, data_type FROM information_schema.columns WHERE table_name='${t}';`
-        );
-        const rows = await stalwartPool.query(`SELECT * FROM "${t}" LIMIT 10;`);
-        results[t] = {
-          columns: cols.rows,
-          sample: rows.rows.map((r: any) => {
-            const clean: any = {};
-            for (const [k, v] of Object.entries(r)) {
-              if (Buffer.isBuffer(v)) {
-                clean[k] = `<Buffer len=${v.length}: ${v.toString('utf8', 0, Math.min(100, v.length)).replace(/[^\x20-\x7E]/g, '.')}>`;
-              } else {
-                clean[k] = v;
-              }
-            }
-            return clean;
-          }),
-        };
-      } catch (e: any) {
-        results[`error_${t}`] = e.message;
+    // Scan table p for email patterns
+    const pRows = await stalwartPool.query('SELECT k, v FROM "p";');
+    const emailsFound = new Set<string>();
+
+    for (const row of pRows.rows) {
+      const vStr = row.v ? row.v.toString('utf8', 0, row.v.length) : '';
+      const matches = vStr.match(/[a-zA-Z0-9._%+-]+@skyconnection\.id/g);
+      if (matches) {
+        matches.forEach((m: string) => emailsFound.add(m.toLowerCase()));
       }
     }
-    await stalwartPool.end();
-  } catch (err: any) {
-    results.error = err.message;
-  }
 
-  return NextResponse.json(results);
+    // Also check other tables
+    for (const t of ['d', 'e', 'a', 'm']) {
+      try {
+        const rows = await stalwartPool.query(`SELECT * FROM "${t}" LIMIT 500;`);
+        for (const row of rows.rows) {
+          for (const val of Object.values(row)) {
+            if (Buffer.isBuffer(val)) {
+              const str = val.toString('utf8', 0, val.length);
+              const matches = str.match(/[a-zA-Z0-9._%+-]+@skyconnection\.id/g);
+              if (matches) {
+                matches.forEach((m: string) => emailsFound.add(m.toLowerCase()));
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    await stalwartPool.end();
+
+    return NextResponse.json({
+      stalwartEmailsCount: emailsFound.size,
+      stalwartEmails: Array.from(emailsFound),
+    });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message });
+  }
 }
