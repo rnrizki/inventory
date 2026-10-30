@@ -1,6 +1,4 @@
 export async function register() {
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const { startUserSyncScheduler } = await import('@/lib/scheduler');
-    startUserSyncScheduler();
-  }
+  // Background daily cron job disabled as requested.
+  // User synchronization is managed on-demand via /api/admin/sync-users
 }
