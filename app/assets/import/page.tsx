@@ -39,10 +39,6 @@ export default function ImportAssetsPage() {
     'Supplier address',
     'Assigned to',
     'Warranty (months)',
-    'Depreciation method',
-    'Depreciation (months)',
-    'Depreciation (%)',
-    'Residual value',
   ];
 
   const sampleRows = [
@@ -59,10 +55,6 @@ export default function ImportAssetsPage() {
       'Jl. Gotong Royong I No.50',
       'Ahmad Fauzi',
       '24',
-      'reducing_balance',
-      '36',
-      '20',
-      '1000000',
     ],
     [
       'Dell UltraSharp 27"',
@@ -77,10 +69,6 @@ export default function ImportAssetsPage() {
       'Jl. Gotong Royong I No.50',
       '',
       '36',
-      'straight_line',
-      '36',
-      '25',
-      '500000',
     ],
     [
       'Xprinter XP-420B',
@@ -95,10 +83,6 @@ export default function ImportAssetsPage() {
       'Jl. Gotong Royong I No.50',
       'Warehouse Team',
       '12',
-      'reducing_balance',
-      '24',
-      '30',
-      '100000',
     ],
   ];
 
@@ -191,9 +175,6 @@ export default function ImportAssetsPage() {
           </li>
           <li>
             Date fields must strictly follow the <strong className="text-blue-950 font-bold">YYYY-MM-DD</strong> format (e.g. <code>2026-10-30</code>).
-          </li>
-          <li>
-            Depreciation method column accepts either <code className="bg-white/80 px-1 py-0.5 rounded border border-blue-200">reducing_balance</code> or <code className="bg-white/80 px-1 py-0.5 rounded border border-blue-200">straight_line</code>.
           </li>
           <li>
             Category and Location columns accept either category/location names (e.g. <code>Laptop PC</code>, <code>Head Office</code>) or existing numeric IDs. Missing categories/locations will be automatically created!

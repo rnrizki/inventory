@@ -42,7 +42,7 @@ export default function AssetDetailPage() {
   const [asset, setAsset] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
-    'general' | 'events' | 'history' | 'files' | 'appreciations' | 'depreciation' | 'reminders' | 'notes' | 'audits'
+    'general' | 'events' | 'history' | 'files' | 'reminders' | 'notes' | 'audits'
   >('general');
   const [qrDataUrl, setQrDataUrl] = useState('');
 
@@ -210,8 +210,6 @@ export default function AssetDetailPage() {
     { id: 'events', label: 'Events', count: asset.events?.length || 0 },
     { id: 'history', label: 'History', count: asset.history?.length || 0 },
     { id: 'files', label: 'Files', count: asset.files?.length || 0 },
-    { id: 'appreciations', label: 'Appreciations', count: null },
-    { id: 'depreciation', label: 'Depreciation', count: null },
     { id: 'reminders', label: 'Reminders', count: asset.reminders?.length || 0 },
     { id: 'notes', label: 'Notes', count: asset.notes?.length || 0 },
     { id: 'audits', label: 'Audits', count: asset.audits?.length || 0 },
@@ -423,7 +421,7 @@ export default function AssetDetailPage() {
               </div>
             </div>
 
-            {/* Right Column: QR Code, Depreciation, Appreciation, Supplier */}
+            {/* Right Column: QR Code, Supplier */}
             <div className="space-y-6">
               {/* QR Code Preview Card */}
               <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
@@ -442,58 +440,6 @@ export default function AssetDetailPage() {
                     <img src={qrDataUrl} alt="Asset QR" className="w-28 h-28 object-contain" />
                   </div>
                 )}
-              </div>
-
-              {/* Depreciation Details Table */}
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-                <div className="bg-cyan-50/60 border-b border-cyan-100 px-5 py-3 flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-slate-800">Depreciation Details</h3>
-                  <button onClick={() => setShowEditModal(true)} className="text-slate-400 hover:text-slate-700">
-                    <Edit className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="divide-y divide-slate-100 text-xs">
-                  <div className="grid grid-cols-3 px-5 py-2.5 bg-slate-50/50">
-                    <span className="font-semibold text-slate-600">Depreciation (Months)</span>
-                    <span className="col-span-2 text-slate-800 font-mono">{asset.depreciation_months || 0}</span>
-                  </div>
-                  <div className="grid grid-cols-3 px-5 py-2.5">
-                    <span className="font-semibold text-slate-600">Depreciation Percentage (%)</span>
-                    <span className="col-span-2 text-slate-800 font-mono">{asset.depreciation_percentage || '0%'}</span>
-                  </div>
-                  <div className="grid grid-cols-3 px-5 py-2.5 bg-slate-50/50">
-                    <span className="font-semibold text-slate-600">Depreciation Method</span>
-                    <span className="col-span-2">
-                      <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[11px] font-semibold border border-blue-200">
-                        {asset.depreciation_method === 'straight_line' ? 'Straight Line Depreciation' : 'Reducing Balance Depreciation'}
-                      </span>
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 px-5 py-2.5">
-                    <span className="font-semibold text-slate-600">Residual Value</span>
-                    <span className="col-span-2 text-slate-800 font-mono">{asset.residual_value || 'Rp 0'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Appreciation Details Table */}
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-                <div className="bg-cyan-50/60 border-b border-cyan-100 px-5 py-3 flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-slate-800">Appreciation Details</h3>
-                  <button onClick={() => setShowEditModal(true)} className="text-slate-400 hover:text-slate-700">
-                    <Edit className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="divide-y divide-slate-100 text-xs">
-                  <div className="grid grid-cols-3 px-5 py-2.5 bg-slate-50/50">
-                    <span className="font-semibold text-slate-600">Appreciation Rate (%)</span>
-                    <span className="col-span-2 text-slate-800 font-mono">{asset.appreciation_rate || '0%'}</span>
-                  </div>
-                  <div className="grid grid-cols-3 px-5 py-2.5">
-                    <span className="font-semibold text-slate-600">Appreciation Period (Months)</span>
-                    <span className="col-span-2 text-slate-800 font-mono">{asset.appreciation_periods || '0'}</span>
-                  </div>
-                </div>
               </div>
 
               {/* Supplier Details Table */}
@@ -605,66 +551,7 @@ export default function AssetDetailPage() {
           </div>
         )}
 
-        {/* Tab 5: Appreciations */}
-        {activeTab === 'appreciations' && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
-            <h3 className="text-sm font-bold text-slate-800 mb-2">Appreciation Schedule</h3>
-            <p className="text-xs text-slate-500 mb-4">Appreciation projections for appreciating equipment or property.</p>
-            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 text-xs">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="text-slate-500">Initial Asset Value:</span>
-                  <p className="font-bold text-slate-800 font-mono text-sm">{costFormatted}</p>
-                </div>
-                <div>
-                  <span className="text-slate-500">Appreciation Rate:</span>
-                  <p className="font-bold text-emerald-600 font-mono text-sm">{asset.appreciation_rate || '0'}%</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 6: Depreciation */}
-        {activeTab === 'depreciation' && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
-            <h3 className="text-sm font-bold text-slate-800 mb-2">Depreciation Calculation Schedule</h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Calculated using: <span className="font-semibold text-blue-700">{asset.depreciation_method || 'Reducing Balance'}</span>
-            </p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs divide-y divide-slate-100">
-                <thead className="bg-slate-50 text-slate-600 font-bold">
-                  <tr>
-                    <th className="px-4 py-2.5">Period (Year)</th>
-                    <th className="px-4 py-2.5">Beginning Value</th>
-                    <th className="px-4 py-2.5">Depreciation Expense</th>
-                    <th className="px-4 py-2.5">Ending Book Value</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-mono">
-                  {[1, 2, 3, 4, 5].map((year) => {
-                    const cost = Number(asset.purchase_cost) || 500000;
-                    const rate = 0.2; // 20%
-                    const beg = cost * Math.pow(1 - rate, year - 1);
-                    const dep = beg * rate;
-                    const end = beg - dep;
-                    return (
-                      <tr key={year}>
-                        <td className="px-4 py-2.5 font-bold text-slate-800">Year {year}</td>
-                        <td className="px-4 py-2.5 text-slate-600">Rp {Math.round(beg).toLocaleString('id-ID')}</td>
-                        <td className="px-4 py-2.5 text-rose-600">-Rp {Math.round(dep).toLocaleString('id-ID')}</td>
-                        <td className="px-4 py-2.5 font-bold text-emerald-700">Rp {Math.round(end).toLocaleString('id-ID')}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 7: Reminders */}
+        {/* Tab: Reminders */}
         {activeTab === 'reminders' && (
           <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
             <div className="flex items-center justify-between mb-4">
