@@ -216,7 +216,7 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
           .spec-val {
             font-size: 6.8pt;
             font-weight: 500;
-            margin-top: 1.8mm;
+            margin-top: 3.2mm;
             line-height: 1.25;
             white-space: pre-wrap;
             word-break: break-word;
@@ -431,7 +431,7 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
                           fontSize: '11px',
                           fontWeight: 500,
                           color: '#111',
-                          marginTop: '6px',
+                          marginTop: '12px',
                           lineHeight: 1.35,
                           whiteSpace: 'pre-wrap',
                           wordBreak: 'break-word',

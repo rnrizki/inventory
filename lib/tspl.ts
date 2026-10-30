@@ -94,8 +94,9 @@ export function buildTsplCommand(label: LabelData, options: PrintOptions = {}) {
   const specX = cellWidth === 5 ? 208 : 175;
   lines.push(`TEXT ${specX},${marginTop + 2},"2",0,1,1,"Specification :"`);
 
-  // Multi-line specs
-  const specContentStartY = marginTop + 2 + 24;
+  // Multi-line specs (with comfortable gap / enter spacing below "Specification :")
+  const specGap = 10;
+  const specContentStartY = marginTop + 2 + 24 + specGap;
   const maxSpecChars = Math.max(8, Math.floor((dotsW - specX - marginRight) / 12));
   const modelLines = wrapTextLines(clean(label.model), maxSpecChars);
   let specLineY = specContentStartY;
