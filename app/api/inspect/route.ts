@@ -6,67 +6,52 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const results: any = {};
 
-  // 1. Test database-postgresql-fy9a1w
   try {
-    const pool = new Pool({
+    // 1. Inspect stalwart1 database
+    const stalwartPool = new Pool({
       host: 'database-postgresql-fy9a1w',
       port: 5432,
       user: 'postgres',
       password: 'dNGwXb9OCrJNNaJMoKI7',
-      database: 'postgres',
+      database: 'stalwart1',
       connectionTimeoutMillis: 3000,
     });
-    const dbs = await pool.query('SELECT datname FROM pg_database WHERE datistemplate = false;');
-    results.dokployPostgresDbs = dbs.rows.map((r: any) => r.datname);
 
-    // If keycloak/keycloack exists, check tables
-    for (const dbName of ['keycloak', 'keycloack', 'stalwart', 'app', 'oxicloud']) {
-      if (results.dokployPostgresDbs.includes(dbName)) {
-        try {
-          const dbPool = new Pool({
-            host: 'database-postgresql-fy9a1w',
-            port: 5432,
-            user: 'postgres',
-            password: 'dNGwXb9OCrJNNaJMoKI7',
-            database: dbName,
-            connectionTimeoutMillis: 3000,
-          });
-          const tables = await dbPool.query(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema='public' LIMIT 30;"
-          );
-          results[`tables_${dbName}`] = tables.rows.map((r: any) => r.table_name);
-          
-          if (tables.rows.some((r: any) => r.table_name.toLowerCase().includes('user'))) {
-            const userTable = tables.rows.find((r: any) => r.table_name.toLowerCase().includes('user'))?.table_name;
-            const users = await dbPool.query(`SELECT * FROM "${userTable}" LIMIT 10;`);
-            results[`sample_users_${dbName}`] = users.rows;
-          }
-          await dbPool.end();
-        } catch (e: any) {
-          results[`error_${dbName}`] = e.message;
-        }
+    const stalwartTables = await stalwartPool.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema='public';"
+    );
+    results.stalwartTables = stalwartTables.rows.map((r: any) => r.table_name);
+
+    for (const tbl of results.stalwartTables) {
+      if (tbl.toLowerCase().includes('user') || tbl.toLowerCase().includes('principal') || tbl.toLowerCase().includes('account') || tbl.toLowerCase().includes('directory')) {
+        const sample = await stalwartPool.query(`SELECT * FROM "${tbl}" LIMIT 10;`);
+        results[`sample_${tbl}`] = sample.rows;
       }
     }
-    await pool.end();
-  } catch (err: any) {
-    results.dokployPostgresError = err.message;
-  }
+    await stalwartPool.end();
 
-  // 2. Test ParadeDB
-  try {
-    const paradePool = new Pool({
-      host: 'mail-paradedb-46ygk4-postgres-1',
+    // 2. Inspect keycloack database
+    const keycloakPool = new Pool({
+      host: 'database-postgresql-fy9a1w',
       port: 5432,
       user: 'postgres',
       password: 'dNGwXb9OCrJNNaJMoKI7',
-      database: 'app',
+      database: 'keycloack',
       connectionTimeoutMillis: 3000,
     });
-    const paradeDbs = await paradePool.query('SELECT datname FROM pg_database WHERE datistemplate = false;');
-    results.paradeDbs = paradeDbs.rows.map((r: any) => r.datname);
-    await paradePool.end();
+
+    const realms = await keycloakPool.query('SELECT id, name FROM realm;');
+    results.keycloakRealms = realms.rows;
+
+    const users = await keycloakPool.query('SELECT id, username, email, realm_id, enabled FROM user_entity LIMIT 20;');
+    results.keycloakUsers = users.rows;
+
+    const clients = await keycloakPool.query('SELECT id, client_id, realm_id, enabled FROM client LIMIT 20;');
+    results.keycloakClients = clients.rows;
+
+    await keycloakPool.end();
   } catch (err: any) {
-    results.paradeError = err.message;
+    results.error = err.message;
   }
 
   return NextResponse.json(results);
