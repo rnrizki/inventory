@@ -14,27 +14,23 @@ export async function GET(request: Request) {
   });
 
   try {
-    // Stalwart directory stores accounts under specific keys or formats
-    const pRows = await stalwartPool.query('SELECT k, v FROM "p";');
-    const principals: any[] = [];
+    const tables = [
+      'a', 'f', 'j', 'w', 'k', 'm', 'p', 's', 'g', 'e', 'q', 'h', 'r', 'l',
+      't', 'd', 'o', 'x', 'i', 'b', 'n', 'u', 'y', 's_trace', 's_email', 's_cal', 's_card'
+    ];
+    const counts: Record<string, number> = {};
 
-    for (const row of pRows.rows) {
-      const vStr = row.v ? row.v.toString('utf8', 0, row.v.length) : '';
-      // Look for user definitions (often json or text with name/email/secret/roles)
-      if (vStr.includes('@skyconnection.id') && (vStr.includes('individual') || vStr.includes('group') || vStr.includes('account') || vStr.includes('user') || vStr.includes('secret') || vStr.includes('roles'))) {
-        principals.push({
-          k_hex: row.k ? row.k.toString('hex') : '',
-          v_preview: vStr.slice(0, 300).replace(/[^\x20-\x7E]/g, '.'),
-        });
+    for (const t of tables) {
+      try {
+        const res = await stalwartPool.query(`SELECT COUNT(*) as cnt FROM "${t}";`);
+        counts[t] = parseInt(res.rows[0].cnt, 10);
+      } catch (e: any) {
+        counts[t] = -1;
       }
     }
-
     await stalwartPool.end();
 
-    return NextResponse.json({
-      count: principals.length,
-      principals: principals.slice(0, 20),
-    });
+    return NextResponse.json(counts);
   } catch (err: any) {
     return NextResponse.json({ error: err.message });
   }
