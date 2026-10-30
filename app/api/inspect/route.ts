@@ -4,7 +4,16 @@ import { Pool } from 'pg';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-  const pool = new Pool({
+  const stalwartPool = new Pool({
+    host: 'database-postgresql-fy9a1w',
+    port: 5432,
+    user: 'postgres',
+    password: 'dNGwXb9OCrJNNaJMoKI7',
+    database: 'stalwart1',
+    connectionTimeoutMillis: 5000,
+  });
+
+  const kcPool = new Pool({
     host: 'database-postgresql-fy9a1w',
     port: 5432,
     user: 'postgres',
@@ -14,23 +23,47 @@ export async function GET(request: Request) {
   });
 
   try {
-    const users = await pool.query('SELECT id, username, email, enabled, first_name, last_name, realm_id FROM user_entity;');
-    const idps = await pool.query('SELECT internal_id, provider_alias, provider_id, realm_id FROM identity_provider;');
-    const clients = await pool.query('SELECT id, client_id, name, realm_id, enabled FROM client;');
-    const realms = await pool.query('SELECT id, name FROM realm;');
-    const comp = await pool.query('SELECT id, name, provider_type, provider_id, realm_id FROM component;');
+    // Check all tables in stalwart1
+    const tablesRes = await stalwartPool.query(`SELECT table_name FROM information_schema.tables WHERE table_schema='public';`);
+    const tables = tablesRes.rows.map(r => r.table_name);
 
-    await pool.end();
+    // Let's examine table 'd' rows where type is User or email
+    const dRows = await stalwartPool.query(`SELECT k, v FROM "d";`);
+    const usersFound: any[] = [];
+    for (const row of dRows.rows) {
+      const kBuf = Buffer.isBuffer(row.k) ? row.k : Buffer.from(row.k || '');
+      const vBuf = Buffer.isBuffer(row.v) ? row.v : Buffer.from(row.v || '');
+      const kStr = kBuf.toString('utf8');
+      const vStr = vBuf.toString('utf8');
+      // Look for strings containing @skyconnection.id or usernames
+      if (kStr.includes('skyconnection.id') || vStr.includes('skyconnection.id') || vStr.includes('argon2')) {
+        usersFound.push({
+          kHex: kBuf.toString('hex'),
+          kAscii: kStr.replace(/[^\x20-\x7E]/g, '.'),
+          vAscii: vStr.replace(/[^\x20-\x7E]/g, '.'),
+        });
+      }
+    }
+
+    // Check keycloak skyconnection realm users
+    const kcUsers = await kcPool.query(`
+      SELECT id, username, email, enabled, first_name, last_name, realm_id 
+      FROM user_entity 
+      WHERE realm_id = '0dadbdef-88eb-47be-8368-9ebf9fcf4f98';
+    `);
+
+    await stalwartPool.end();
+    await kcPool.end();
 
     return NextResponse.json({
-      realms: realms.rows,
-      users: users.rows,
-      idps: idps.rows,
-      clients: clients.rows,
-      components: comp.rows,
+      stalwartTables: tables,
+      usersFoundCount: usersFound.length,
+      usersFoundSample: usersFound.slice(0, 20),
+      kcUsers: kcUsers.rows,
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message });
+    return NextResponse.json({ error: err.message, stack: err.stack });
   }
 }
+
 
