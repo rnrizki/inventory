@@ -181,7 +181,7 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
           .label-box {
             width: ${widthMm}mm;
             height: ${heightMm}mm;
-            padding: 2.2mm 2.8mm;
+            padding: 3mm 3mm 1.25mm 3mm;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -400,7 +400,7 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
                     background: '#ffffff',
                     border: '1px solid #cbd5e1',
                     borderRadius: '4px',
-                    padding: '12px 14px',
+                    padding: '16px 16px 10px 16px',
                     boxSizing: 'border-box',
                     display: 'flex',
                     flexDirection: 'column',

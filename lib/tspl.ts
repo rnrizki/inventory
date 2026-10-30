@@ -68,8 +68,10 @@ export function buildTsplCommand(label: LabelData, options: PrintOptions = {}) {
 
   const dotsW = widthMm * 8; // e.g. 60mm = 480 dots
   const dotsH = heightMm * 8; // e.g. 50mm = 400 dots
-  const marginX = 12;
-  const curY = 12;
+  // Wider left, right, and top margins (24 dots = 3.0mm; bottom kept as-is)
+  const marginLeft = dotsW >= 450 ? 24 : 16;
+  const marginRight = dotsW >= 450 ? 24 : 16;
+  const marginTop = dotsH >= 350 ? 24 : 16;
 
   const lines: string[] = [];
   lines.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
@@ -83,19 +85,18 @@ export function buildTsplCommand(label: LabelData, options: PrintOptions = {}) {
 
   const clean = (s: string) => (s || "").trim().replace(/"/g, "'");
 
-  // 1. TOP SECTION: Enlarged QR code (25% bigger) + Specification right next to it
+  // 1. TOP SECTION: Enlarged QR code + Specification adjacent (with comfortable margins)
   const qrData = clean(label.qrData);
-  // cellWidth 5 gives a 25% larger QR code on 60mm labels (approx 170 dots wide)
   const cellWidth = dotsW >= 450 ? 5 : 4;
-  lines.push(`QRCODE ${marginX},${curY},M,${cellWidth},A,0,"${qrData}"`);
+  lines.push(`QRCODE ${marginLeft},${marginTop},M,${cellWidth},A,0,"${qrData}"`);
 
   // Position Specification directly adjacent to QR code (eliminates awkward empty gap)
-  const specX = cellWidth === 5 ? 192 : 160;
-  lines.push(`TEXT ${specX},${curY + 2},"2",0,1,1,"Specification :"`);
+  const specX = cellWidth === 5 ? 208 : 175;
+  lines.push(`TEXT ${specX},${marginTop + 2},"2",0,1,1,"Specification :"`);
 
   // Multi-line specs
-  const specContentStartY = curY + 2 + 24;
-  const maxSpecChars = Math.max(8, Math.floor((dotsW - specX - marginX) / 12));
+  const specContentStartY = marginTop + 2 + 24;
+  const maxSpecChars = Math.max(8, Math.floor((dotsW - specX - marginRight) / 12));
   const modelLines = wrapTextLines(clean(label.model), maxSpecChars);
   let specLineY = specContentStartY;
   for (let i = 0; i < Math.min(modelLines.length, 6); i++) {
@@ -103,12 +104,12 @@ export function buildTsplCommand(label: LabelData, options: PrintOptions = {}) {
     specLineY += 20;
   }
 
-  // Top section bottom boundary (approx 180 dots for cellWidth 5)
-  const qrEstimatedBottom = curY + (cellWidth === 5 ? 180 : 150);
+  // Top section bottom boundary (approx 175 dots for cellWidth 5)
+  const qrEstimatedBottom = marginTop + (cellWidth === 5 ? 175 : 145);
   const topSectionBottom = Math.max(qrEstimatedBottom, specLineY);
 
-  // 2. BOTTOM SECTION (Anchored cleanly at bottom)
-  const printableW = dotsW - marginX * 2;
+  // 2. BOTTOM SECTION (Anchored cleanly at bottom — unchanged as requested)
+  const printableW = dotsW - marginLeft - marginRight;
   const bottomMargin = 10;
   const addrLine2Y = dotsH - bottomMargin - 12; // Font 1 height 12
   const addrLine1Y = addrLine2Y - 14;           // 14 dots line spacing
@@ -118,29 +119,29 @@ export function buildTsplCommand(label: LabelData, options: PrintOptions = {}) {
   // 3. MIDDLE SECTION (Asset Name, Tahun Pembelian, Serial Number)
   const midStartY = topSectionBottom + 12;
   const midAvailable = propertyY - midStartY - 8;
-  const midStep = Math.max(22, Math.min(30, Math.floor(midAvailable / 3)));
+  const midStep = Math.max(22, Math.min(28, Math.floor(midAvailable / 3)));
 
   const maxCharsFull = Math.floor(printableW / 12);
   const assetName = clean(label.name);
-  lines.push(`TEXT ${marginX},${midStartY},"2",0,1,1,"Asset Name : ${assetName.substring(0, maxCharsFull)}"`);
+  lines.push(`TEXT ${marginLeft},${midStartY},"2",0,1,1,"Asset Name : ${assetName.substring(0, maxCharsFull)}"`);
 
   const dateStr = clean(label.purchaseDate);
-  lines.push(`TEXT ${marginX},${midStartY + midStep},"2",0,1,1,"Tahun Pembelian: ${dateStr.substring(0, maxCharsFull)}"`);
+  lines.push(`TEXT ${marginLeft},${midStartY + midStep},"2",0,1,1,"Tahun Pembelian: ${dateStr.substring(0, maxCharsFull)}"`);
 
   const serialStr = clean(label.serial);
-  lines.push(`TEXT ${marginX},${midStartY + midStep * 2},"2",0,1,1,"Serial Number: ${serialStr.substring(0, maxCharsFull)}"`);
+  lines.push(`TEXT ${marginLeft},${midStartY + midStep * 2},"2",0,1,1,"Serial Number: ${serialStr.substring(0, maxCharsFull)}"`);
 
-  // Render Bottom Section
-  lines.push(`TEXT ${marginX},${propertyY},"1",0,1,1,"Property"`);
+  // Render Bottom Section (aligned to marginLeft)
+  lines.push(`TEXT ${marginLeft},${propertyY},"1",0,1,1,"Property"`);
 
   const supplier = clean(label.supplier);
-  lines.push(`TEXT ${marginX},${supplierY},"2",0,1,1,"${supplier.substring(0, maxCharsFull)}"`);
+  lines.push(`TEXT ${marginLeft},${supplierY},"2",0,1,1,"${supplier.substring(0, maxCharsFull)}"`);
 
   const address = clean(label.address || DEFAULT_ADDRESS);
   const addressLines = wrapTextLines(address, 38);
-  lines.push(`TEXT ${marginX},${addrLine1Y},"1",0,1,1,"${addressLines[0] || ''}"`);
+  lines.push(`TEXT ${marginLeft},${addrLine1Y},"1",0,1,1,"${addressLines[0] || ''}"`);
   if (addressLines[1]) {
-    lines.push(`TEXT ${marginX},${addrLine2Y},"1",0,1,1,"${addressLines[1]}"`);
+    lines.push(`TEXT ${marginLeft},${addrLine2Y},"1",0,1,1,"${addressLines[1]}"`);
   }
 
   lines.push(`PRINT 1,${copies}`);
