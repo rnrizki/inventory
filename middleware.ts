@@ -11,6 +11,7 @@ export function middleware(request: NextRequest) {
     pathname === '/login' ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/admin/sync-users') ||
+    pathname.startsWith('/api/admin/reset-data') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon.ico') ||
     pathname.startsWith('/logo')

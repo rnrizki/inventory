@@ -205,56 +205,18 @@ export async function ensureSchema(): Promise<void> {
         CREATE INDEX IF NOT EXISTS idx_asset_history_aid ON asset_history(asset_id);
       `);
 
-      // Initial Seed Data if assets table is empty
-      const assetCheck = await client.query('SELECT COUNT(*) as cnt FROM assets');
-      const count = parseInt(assetCheck.rows[0]?.cnt || '0', 10);
-      if (count === 0) {
-        // Default category
-        await client.query(`
-          INSERT INTO categories (name, description)
-          VALUES ('Laptop PC', 'Laptop & Personal Computer Assets')
-          ON CONFLICT (name) DO NOTHING;
-        `);
+      // Default categories & locations setup
+      await client.query(`
+        INSERT INTO categories (name, description)
+        VALUES ('Laptop PC', 'Laptop & Personal Computer Assets')
+        ON CONFLICT (name) DO NOTHING;
+      `);
 
-        // Default location
-        await client.query(`
-          INSERT INTO locations (name, description)
-          VALUES ('Head Office', 'Jl. Gotong Royong I No.50, Ragunan, Jakarta Selatan')
-          ON CONFLICT (name) DO NOTHING;
-        `);
-
-        const catRes = await client.query(`SELECT id FROM categories WHERE name = 'Laptop PC' LIMIT 1`);
-        const locRes = await client.query(`SELECT id FROM locations WHERE name = 'Head Office' LIMIT 1`);
-        const catId = catRes.rows[0]?.id || 1;
-        const locId = locRes.rows[0]?.id || 1;
-
-        // Migrated Asset: M1 Apple
-        const insertAssetRes = await client.query(`
-          INSERT INTO assets (
-            asset_name, asset_description, serial_number, model_number,
-            purchase_cost, purchase_date, supplier_name, category_id, location_id, asset_status,
-            depreciation_method, depreciation_months, depreciation_percentage, residual_value
-          ) VALUES (
-            'M1 Apple', 'Office Laptop Workstation', '453453453453453', 'HDD 512 GB / Ram 16GB',
-            500000, '2025-08-29', 'PT. Angan Kreasi Semesta', $1, $2, 1,
-            'reducing_balance', 0, '', ''
-          ) RETURNING id;
-        `, [catId, locId]);
-
-        const newAssetId = insertAssetRes.rows[0]?.id;
-
-        if (newAssetId) {
-          await client.query(`
-            INSERT INTO asset_history (asset_id, action, note)
-            VALUES ($1, 'System Migration', 'Migrated asset data from legacy Perfex CRM');
-          `, [newAssetId]);
-
-          await client.query(`
-            INSERT INTO asset_events (asset_id, event_type, notes)
-            VALUES ($1, 'Purchased & Registered', 'Initial acquisition from PT. Angan Kreasi Semesta');
-          `, [newAssetId]);
-        }
-      }
+      await client.query(`
+        INSERT INTO locations (name, description)
+        VALUES ('Head Office', 'Jl. Gotong Royong I No.50, Ragunan, Jakarta Selatan')
+        ON CONFLICT (name) DO NOTHING;
+      `);
 
       await client.query('COMMIT');
     } catch (error) {
