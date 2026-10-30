@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
+import JsBarcode from 'jsbarcode';
 import { X, Printer, Bolt, CheckCircle2, AlertCircle, RefreshCw, Smartphone } from 'lucide-react';
 import { buildTsplCommand, DEFAULT_ADDRESS, LabelData } from '@/lib/tspl';
 import { WebUsbPrinter } from '@/lib/webusb';
@@ -39,6 +40,7 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
   const [statusMsg, setStatusMsg] = useState<{ type: 'info' | 'success' | 'warning' | 'error'; text: string } | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState('');
+  const [barcodeDataUrl, setBarcodeDataUrl] = useState('');
 
   // Auto connect on mount
   useEffect(() => {
@@ -74,6 +76,29 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
       .then((url) => setQrDataUrl(url))
       .catch((err) => console.error(err));
   }, [qrType, customQr, name, serial, model, supplier, asset.id]);
+
+  // Generate 1D Barcode image for Serial Number
+  useEffect(() => {
+    const s = (serial || '').trim();
+    if (!s || s === '-') {
+      setBarcodeDataUrl('');
+      return;
+    }
+    try {
+      const canvas = document.createElement('canvas');
+      JsBarcode(canvas, s, {
+        format: 'CODE128',
+        width: 1.2,
+        height: 24,
+        displayValue: false,
+        margin: 0,
+      });
+      setBarcodeDataUrl(canvas.toDataURL('image/png'));
+    } catch (err) {
+      console.warn('Barcode render error:', err);
+      setBarcodeDataUrl('');
+    }
+  }, [serial]);
 
   // Connect WebUSB
   const handleConnectUsb = async () => {
@@ -234,6 +259,15 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
             text-overflow: ellipsis;
             margin-bottom: 0.5mm;
           }
+          .barcode-wrap {
+            margin-top: 0.8mm;
+            line-height: 0;
+          }
+          .barcode-img {
+            height: 3mm;
+            max-width: 48mm;
+            object-fit: contain;
+          }
           .bot-section {
             margin-top: auto;
           }
@@ -273,6 +307,7 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
             <div class="mid-item"><b>Asset Name :</b> ${name}</div>
             <div class="mid-item"><b>Tahun Pembelian:</b> ${date}</div>
             <div class="mid-item"><b>Serial Number:</b> ${serial}</div>
+            ${barcodeDataUrl ? `<div class="barcode-wrap"><img src="${barcodeDataUrl}" class="barcode-img" /></div>` : ''}
           </div>
           <div class="bot-section">
             <div class="prop-title">Property</div>
@@ -444,8 +479,8 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
                     </div>
                   </div>
 
-                  {/* Middle lines: Asset Name, Purchase Date, Serial Number */}
-                  <div style={{ margin: '8px 0', fontSize: '11.5px', lineHeight: 1.5, color: '#111' }}>
+                  {/* Middle lines: Asset Name, Purchase Date, Serial Number + Small Barcode */}
+                  <div style={{ margin: '6px 0', fontSize: '11px', lineHeight: 1.45, color: '#111' }}>
                     <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       <b>Asset Name :</b> {name || '-'}
                     </div>
@@ -455,6 +490,15 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
                     <div style={{ marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       <b>Serial Number:</b> {serial || '-'}
                     </div>
+                    {barcodeDataUrl && (
+                      <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center' }}>
+                        <img
+                          src={barcodeDataUrl}
+                          alt="Serial Barcode"
+                          style={{ height: '18px', maxWidth: '170px', objectFit: 'contain' }}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Bottom section: Anchored at the very bottom */}

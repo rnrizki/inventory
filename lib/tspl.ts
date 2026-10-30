@@ -117,20 +117,35 @@ export function buildTsplCommand(label: LabelData, options: PrintOptions = {}) {
   const supplierY = addrLine1Y - 22;            // Font 2 height 20
   const propertyY = supplierY - 16;             // Font 1 height 12
 
-  // 3. MIDDLE SECTION (Asset Name, Tahun Pembelian, Serial Number)
-  const midStartY = topSectionBottom + 12;
-  const midAvailable = propertyY - midStartY - 8;
-  const midStep = Math.max(22, Math.min(28, Math.floor(midAvailable / 3)));
-
+  // 3. MIDDLE SECTION (Asset Name, Tahun Pembelian, Serial Number + Small Barcode)
+  const serialStr = clean(label.serial);
+  const hasBarcode = Boolean(serialStr && serialStr !== '-');
+  const midStartY = topSectionBottom + 10;
   const maxCharsFull = Math.floor(printableW / 12);
   const assetName = clean(label.name);
-  lines.push(`TEXT ${marginLeft},${midStartY},"2",0,1,1,"Asset Name : ${assetName.substring(0, maxCharsFull)}"`);
-
   const dateStr = clean(label.purchaseDate);
-  lines.push(`TEXT ${marginLeft},${midStartY + midStep},"2",0,1,1,"Tahun Pembelian: ${dateStr.substring(0, maxCharsFull)}"`);
 
-  const serialStr = clean(label.serial);
-  lines.push(`TEXT ${marginLeft},${midStartY + midStep * 2},"2",0,1,1,"Serial Number: ${serialStr.substring(0, maxCharsFull)}"`);
+  if (hasBarcode) {
+    const lineStep = 22;
+    const nameY = midStartY;
+    const dateY = nameY + lineStep;
+    const serialY = dateY + lineStep;
+    const barcodeY = serialY + 22;
+    const barcodeHeight = 22; // Small 1D barcode ~2.75mm
+    const narrow = serialStr.length > 18 ? 1 : 2;
+
+    lines.push(`TEXT ${marginLeft},${nameY},"2",0,1,1,"Asset Name : ${assetName.substring(0, maxCharsFull)}"`);
+    lines.push(`TEXT ${marginLeft},${dateY},"2",0,1,1,"Tahun Pembelian: ${dateStr.substring(0, maxCharsFull)}"`);
+    lines.push(`TEXT ${marginLeft},${serialY},"2",0,1,1,"Serial Number: ${serialStr.substring(0, maxCharsFull)}"`);
+    lines.push(`BARCODE ${marginLeft},${barcodeY},"128",${barcodeHeight},0,0,${narrow},2,"${serialStr}"`);
+  } else {
+    const midAvailable = propertyY - midStartY - 8;
+    const midStep = Math.max(22, Math.min(28, Math.floor(midAvailable / 3)));
+
+    lines.push(`TEXT ${marginLeft},${midStartY},"2",0,1,1,"Asset Name : ${assetName.substring(0, maxCharsFull)}"`);
+    lines.push(`TEXT ${marginLeft},${midStartY + midStep},"2",0,1,1,"Tahun Pembelian: ${dateStr.substring(0, maxCharsFull)}"`);
+    lines.push(`TEXT ${marginLeft},${midStartY + midStep * 2},"2",0,1,1,"Serial Number: ${serialStr.substring(0, maxCharsFull)}"`);
+  }
 
   // Render Bottom Section (aligned to marginLeft)
   lines.push(`TEXT ${marginLeft},${propertyY},"1",0,1,1,"Property"`);
