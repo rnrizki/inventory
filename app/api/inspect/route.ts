@@ -14,41 +14,26 @@ export async function GET(request: Request) {
   });
 
   try {
-    // Scan table p for email patterns
+    // Stalwart directory stores accounts under specific keys or formats
     const pRows = await stalwartPool.query('SELECT k, v FROM "p";');
-    const emailsFound = new Set<string>();
+    const principals: any[] = [];
 
     for (const row of pRows.rows) {
       const vStr = row.v ? row.v.toString('utf8', 0, row.v.length) : '';
-      const matches = vStr.match(/[a-zA-Z0-9._%+-]+@skyconnection\.id/g);
-      if (matches) {
-        matches.forEach((m: string) => emailsFound.add(m.toLowerCase()));
+      // Look for user definitions (often json or text with name/email/secret/roles)
+      if (vStr.includes('@skyconnection.id') && (vStr.includes('individual') || vStr.includes('group') || vStr.includes('account') || vStr.includes('user') || vStr.includes('secret') || vStr.includes('roles'))) {
+        principals.push({
+          k_hex: row.k ? row.k.toString('hex') : '',
+          v_preview: vStr.slice(0, 300).replace(/[^\x20-\x7E]/g, '.'),
+        });
       }
-    }
-
-    // Also check other tables
-    for (const t of ['d', 'e', 'a', 'm']) {
-      try {
-        const rows = await stalwartPool.query(`SELECT * FROM "${t}" LIMIT 500;`);
-        for (const row of rows.rows) {
-          for (const val of Object.values(row)) {
-            if (Buffer.isBuffer(val)) {
-              const str = val.toString('utf8', 0, val.length);
-              const matches = str.match(/[a-zA-Z0-9._%+-]+@skyconnection\.id/g);
-              if (matches) {
-                matches.forEach((m: string) => emailsFound.add(m.toLowerCase()));
-              }
-            }
-          }
-        }
-      } catch (e) {}
     }
 
     await stalwartPool.end();
 
     return NextResponse.json({
-      stalwartEmailsCount: emailsFound.size,
-      stalwartEmails: Array.from(emailsFound),
+      count: principals.length,
+      principals: principals.slice(0, 20),
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message });
