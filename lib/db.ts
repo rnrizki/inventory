@@ -181,6 +181,21 @@ export async function ensureSchema(): Promise<void> {
         );
       `);
 
+      // Ensure lifecycle columns exist in asset_events and asset_maintenance
+      await client.query(`
+        ALTER TABLE asset_events ADD COLUMN IF NOT EXISTS signature TEXT;
+        ALTER TABLE asset_events ADD COLUMN IF NOT EXISTS event_date TEXT;
+        ALTER TABLE asset_events ADD COLUMN IF NOT EXISTS target_person TEXT;
+        ALTER TABLE asset_events ADD COLUMN IF NOT EXISTS cost NUMERIC(15,2) DEFAULT 0;
+        ALTER TABLE asset_events ADD COLUMN IF NOT EXISTS status_details TEXT;
+
+        ALTER TABLE asset_maintenance ADD COLUMN IF NOT EXISTS due_date TEXT;
+        ALTER TABLE asset_maintenance ADD COLUMN IF NOT EXISTS maintenance_by TEXT;
+        ALTER TABLE asset_maintenance ADD COLUMN IF NOT EXISTS maintenance_status TEXT;
+        ALTER TABLE asset_maintenance ADD COLUMN IF NOT EXISTS date_completed TEXT;
+        ALTER TABLE asset_maintenance ADD COLUMN IF NOT EXISTS signature TEXT;
+      `);
+
       // Indexes for performance
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_assets_cat_id ON assets(category_id);

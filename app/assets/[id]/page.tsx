@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import TsplPrintModal from '@/components/TsplPrintModal';
 import AssetModal from '@/components/AssetModal';
+import AssetStatusModal, { LifecycleAction } from '@/components/AssetStatusModal';
 import { ASSET_STATUSES, getStatusInfo } from '@/lib/status';
 import { fileToOptimizedDataUrl } from '@/lib/image-upload';
 
@@ -55,8 +56,7 @@ export default function AssetDetailPage() {
   // Modals
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showAllocateModal, setShowAllocateModal] = useState(false);
-  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+  const [activeLifecycleAction, setActiveLifecycleAction] = useState<LifecycleAction | null>(null);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [showUrlPhotoModal, setShowUrlPhotoModal] = useState(false);
@@ -74,9 +74,6 @@ export default function AssetDetailPage() {
   }, []);
 
   // Form states
-  const [allocateName, setAllocateName] = useState('');
-  const [allocateNote, setAllocateNote] = useState('');
-  const [maintenanceForm, setMaintenanceForm] = useState({ title: '', cost: '', start_date: '', end_date: '', description: '' });
   const [newNote, setNewNote] = useState('');
   const [reminderForm, setReminderForm] = useState({ description: '', reminder_date: '' });
 
@@ -231,23 +228,6 @@ export default function AssetDetailPage() {
     }
   };
 
-  const handleAddMaintenance = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await fetch(`/api/assets/${assetId}/maintenance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(maintenanceForm),
-      });
-      if (res.ok) {
-        setMaintenanceForm({ title: '', cost: '', start_date: '', end_date: '', description: '' });
-        setShowMaintenanceModal(false);
-        fetchAsset();
-      }
-    } catch (e: any) {
-      alert(e.message);
-    }
-  };
 
   if (loading) {
     return (
@@ -282,17 +262,17 @@ export default function AssetDetailPage() {
   const costFormatted = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Number(asset.purchase_cost) || 0);
 
   // Quick Action Buttons definition matching Perfex Asset Central
-  const quickActions = [
-    { label: 'Allocate', icon: '👤', onClick: () => setShowAllocateModal(true), bg: 'hover:bg-amber-50 text-amber-700 border-amber-300' },
-    { label: 'Revocate', icon: '↩️', onClick: () => handleQuickStatus('revocate'), bg: 'hover:bg-red-50 text-red-700 border-red-300' },
-    { label: 'Lost', icon: '🔍', onClick: () => handleQuickStatus('lost'), bg: 'hover:bg-slate-100 text-slate-700 border-slate-300' },
-    { label: 'Found', icon: '📍', onClick: () => handleQuickStatus('found'), bg: 'hover:bg-emerald-50 text-emerald-700 border-emerald-300' },
-    { label: 'Broken', icon: '⚠️', onClick: () => handleQuickStatus('broken'), bg: 'hover:bg-rose-50 text-rose-700 border-rose-300' },
-    { label: 'Dispose', icon: '🗑️', onClick: () => handleQuickStatus('dispose'), bg: 'hover:bg-orange-50 text-orange-700 border-orange-300' },
-    { label: 'Donate', icon: '🎁', onClick: () => handleQuickStatus('donate'), bg: 'hover:bg-pink-50 text-pink-700 border-pink-300' },
-    { label: 'Sell', icon: '💵', onClick: () => handleQuickStatus('sell'), bg: 'hover:bg-yellow-50 text-yellow-800 border-yellow-300' },
-    { label: 'Repair', icon: '🔧', onClick: () => handleQuickStatus('repair'), bg: 'hover:bg-sky-50 text-sky-700 border-sky-300' },
-    { label: 'Maintenance', icon: '⚙️', onClick: () => setShowMaintenanceModal(true), bg: 'hover:bg-indigo-50 text-indigo-700 border-indigo-300' },
+  const quickActions: { label: string; action: LifecycleAction; icon: string; bg: string }[] = [
+    { label: 'Allocate', action: 'allocate', icon: '👤', bg: 'hover:bg-amber-50 text-amber-700 border-amber-300' },
+    { label: 'Revocate', action: 'revocate', icon: '↩️', bg: 'hover:bg-red-50 text-red-700 border-red-300' },
+    { label: 'Lost', action: 'lost', icon: '🔍', bg: 'hover:bg-slate-100 text-slate-700 border-slate-300' },
+    { label: 'Found', action: 'found', icon: '📍', bg: 'hover:bg-emerald-50 text-emerald-700 border-emerald-300' },
+    { label: 'Broken', action: 'broken', icon: '⚠️', bg: 'hover:bg-rose-50 text-rose-700 border-rose-300' },
+    { label: 'Dispose', action: 'dispose', icon: '🗑️', bg: 'hover:bg-orange-50 text-orange-700 border-orange-300' },
+    { label: 'Donate', action: 'donate', icon: '🎁', bg: 'hover:bg-pink-50 text-pink-700 border-pink-300' },
+    { label: 'Sell', action: 'sell', icon: '💵', bg: 'hover:bg-yellow-50 text-yellow-800 border-yellow-300' },
+    { label: 'Repair', action: 'repair', icon: '🔧', bg: 'hover:bg-sky-50 text-sky-700 border-sky-300' },
+    { label: 'Maintenance', action: 'maintenance', icon: '⚙️', bg: 'hover:bg-indigo-50 text-indigo-700 border-indigo-300' },
   ];
 
   const tabs = [
@@ -397,7 +377,7 @@ export default function AssetDetailPage() {
               {quickActions.map((act) => (
                 <button
                   key={act.label}
-                  onClick={act.onClick}
+                  onClick={() => setActiveLifecycleAction(act.action)}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border bg-white transition shadow-xs ${act.bg}`}
                 >
                   <span>{act.icon}</span>
@@ -645,7 +625,7 @@ export default function AssetDetailPage() {
               <h3 className="text-sm font-bold text-slate-800">Asset Events Timeline</h3>
               {currentUser?.canEdit && (
                 <button
-                  onClick={() => handleQuickStatus('maintenance')}
+                  onClick={() => setActiveLifecycleAction('maintenance')}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700"
                 >
                   <Plus className="w-3.5 h-3.5" /> Log Event
@@ -667,7 +647,17 @@ export default function AssetDetailPage() {
                         <span className="text-slate-400 text-[11px]">{evt.created_at}</span>
                       </div>
                       <p className="text-slate-600 mt-0.5">{evt.notes || '-'}</p>
-                      <span className="text-[10px] text-slate-400">By: {evt.event_by}</span>
+                      {evt.signature && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-[10px] text-slate-400 font-semibold">Signature:</span>
+                          <img
+                            src={evt.signature}
+                            alt="Signature"
+                            className="h-10 max-w-[160px] object-contain border border-slate-200 rounded bg-white p-1 shadow-2xs"
+                          />
+                        </div>
+                      )}
+                      <span className="text-[10px] text-slate-400 block mt-1">By: {evt.event_by}</span>
                     </div>
                   </div>
                 ))}
@@ -818,111 +808,18 @@ export default function AssetDetailPage() {
         )}
       </div>
 
-      {/* Allocate Modal */}
-      {showAllocateModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-base font-bold text-slate-900 mb-1">Allocate Asset to Staff</h3>
-            <p className="text-xs text-slate-500 mb-4">Assign this equipment to an employee or team member.</p>
-            <div className="space-y-4 text-xs">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Staff / Employee Name *</label>
-                <input
-                  type="text"
-                  value={allocateName}
-                  onChange={(e) => setAllocateName(e.target.value)}
-                  placeholder="e.g. Budi Santoso / IT Staff"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Allocation Note</label>
-                <textarea
-                  value={allocateNote}
-                  onChange={(e) => setAllocateNote(e.target.value)}
-                  placeholder="Handed over with power adapter and case..."
-                  rows={2}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setShowAllocateModal(false)}
-                  className="px-4 py-2 border rounded-lg font-semibold text-slate-600 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    handleQuickStatus('allocate', { assigned_to: allocateName, note: allocateNote });
-                    setShowAllocateModal(false);
-                    setAllocateName('');
-                    setAllocateNote('');
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700"
-                >
-                  Confirm Allocation
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Maintenance Modal */}
-      {showMaintenanceModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-base font-bold text-slate-900 mb-1">Schedule Maintenance</h3>
-            <p className="text-xs text-slate-500 mb-4">Set repair or maintenance schedule for this asset.</p>
-            <form onSubmit={handleAddMaintenance} className="space-y-3 text-xs">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Maintenance Title *</label>
-                <input
-                  type="text"
-                  required
-                  value={maintenanceForm.title}
-                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, title: e.target.value })}
-                  placeholder="e.g. Battery replacement & cleaning"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Estimated Cost (IDR)</label>
-                  <input
-                    type="number"
-                    value={maintenanceForm.cost}
-                    onChange={(e) => setMaintenanceForm({ ...maintenanceForm, cost: e.target.value })}
-                    placeholder="250000"
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Start Date</label>
-                  <input
-                    type="date"
-                    value={maintenanceForm.start_date}
-                    onChange={(e) => setMaintenanceForm({ ...maintenanceForm, start_date: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowMaintenanceModal(false)}
-                  className="px-4 py-2 border rounded-lg font-semibold text-slate-600 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700">
-                  Save Maintenance
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Unified Asset Status Details Modal (matching uploaded pictures) */}
+      {activeLifecycleAction && (
+        <AssetStatusModal
+          isOpen={activeLifecycleAction !== null}
+          action={activeLifecycleAction}
+          asset={asset}
+          onClose={() => setActiveLifecycleAction(null)}
+          onSaved={() => {
+            setActiveLifecycleAction(null);
+            fetchAsset();
+          }}
+        />
       )}
 
       {/* Note Modal */}
