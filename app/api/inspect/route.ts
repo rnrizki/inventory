@@ -4,35 +4,33 @@ import { Pool } from 'pg';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-  const stalwartPool = new Pool({
+  const pool = new Pool({
     host: 'database-postgresql-fy9a1w',
     port: 5432,
     user: 'postgres',
     password: 'dNGwXb9OCrJNNaJMoKI7',
-    database: 'stalwart1',
-    connectionTimeoutMillis: 3000,
+    database: 'keycloack',
+    connectionTimeoutMillis: 5000,
   });
 
   try {
-    const results: any = {};
-    for (const t of ['d', 'w', 't', 'm']) {
-      const rows = await stalwartPool.query(`SELECT * FROM "${t}";`);
-      results[t] = rows.rows.map((r: any) => {
-        const rowClean: any = {};
-        for (const [k, v] of Object.entries(r)) {
-          if (Buffer.isBuffer(v)) {
-            rowClean[k] = v.toString('utf8').replace(/[^\x20-\x7E]/g, '.');
-          } else {
-            rowClean[k] = v;
-          }
-        }
-        return rowClean;
-      });
-    }
-    await stalwartPool.end();
+    const users = await pool.query('SELECT id, username, email, enabled, first_name, last_name, realm_id FROM user_entity;');
+    const idps = await pool.query('SELECT internal_id, provider_alias, provider_id, realm_id FROM identity_provider;');
+    const clients = await pool.query('SELECT id, client_id, name, realm_id, enabled FROM client;');
+    const realms = await pool.query('SELECT id, name FROM realm;');
+    const comp = await pool.query('SELECT id, name, provider_type, provider_id, realm_id FROM component;');
 
-    return NextResponse.json(results);
+    await pool.end();
+
+    return NextResponse.json({
+      realms: realms.rows,
+      users: users.rows,
+      idps: idps.rows,
+      clients: clients.rows,
+      components: comp.rows,
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message });
   }
 }
+
