@@ -55,12 +55,27 @@ export async function GET(request: Request) {
     await stalwartPool.end();
     await kcPool.end();
 
+    // Search for trihantoro and inventory across all tables in stalwart
+    const searchMatch: any[] = [];
+    for (const t of ['d', 'w', 't', 'm', 'p', 's', 'g']) {
+      try {
+        const rows = await stalwartPool.query(`SELECT * FROM "${t}";`);
+        for (const row of rows.rows) {
+          for (const [col, val] of Object.entries(row)) {
+            const str = Buffer.isBuffer(val) ? val.toString('utf8') : String(val);
+            if (str.toLowerCase().includes('trihantoro') || str.toLowerCase().includes('inventory')) {
+              searchMatch.push({ table: t, col, match: str.replace(/[^\x20-\x7E]/g, '.') });
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
     return NextResponse.json({
-      stalwartTables: tables,
-      usersFoundCount: usersFound.length,
-      usersFoundSample: usersFound.slice(0, 20),
+      searchMatch,
       kcUsers: kcUsers.rows,
     });
+
   } catch (err: any) {
     return NextResponse.json({ error: err.message, stack: err.stack });
   }
