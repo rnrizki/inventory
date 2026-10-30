@@ -68,7 +68,7 @@ export function buildTsplCommand(label: LabelData, options: PrintOptions = {}) {
 
   const dotsW = widthMm * 8; // e.g. 60mm = 480 dots
   const dotsH = heightMm * 8; // e.g. 50mm = 400 dots
-  const marginX = 14;
+  const marginX = 12;
   const curY = 12;
 
   const lines: string[] = [];
@@ -83,44 +83,42 @@ export function buildTsplCommand(label: LabelData, options: PrintOptions = {}) {
 
   const clean = (s: string) => (s || "").trim().replace(/"/g, "'");
 
-  // 1. TOP SECTION (50/50 Split)
-  // Left: QR Code (cellWidth = 4: ~156 dots total with quiet zone)
+  // 1. TOP SECTION: Enlarged QR code (25% bigger) + Specification right next to it
   const qrData = clean(label.qrData);
-  const cellWidth = 4;
+  // cellWidth 5 gives a 25% larger QR code on 60mm labels (approx 170 dots wide)
+  const cellWidth = dotsW >= 450 ? 5 : 4;
   lines.push(`QRCODE ${marginX},${curY},M,${cellWidth},A,0,"${qrData}"`);
 
-  // Right: Specification : + Multi-line specs
-  const midX = Math.floor(dotsW / 2);
-  const specX = midX + 6;
+  // Position Specification directly adjacent to QR code (eliminates awkward empty gap)
+  const specX = cellWidth === 5 ? 192 : 160;
   lines.push(`TEXT ${specX},${curY + 2},"2",0,1,1,"Specification :"`);
 
-  // Margin below "Specification :" so content does not collide or sit too close
-  const specContentStartY = curY + 2 + 28;
+  // Multi-line specs
+  const specContentStartY = curY + 2 + 24;
   const maxSpecChars = Math.max(8, Math.floor((dotsW - specX - marginX) / 12));
   const modelLines = wrapTextLines(clean(label.model), maxSpecChars);
   let specLineY = specContentStartY;
-  for (let i = 0; i < Math.min(modelLines.length, 7); i++) {
+  for (let i = 0; i < Math.min(modelLines.length, 6); i++) {
     lines.push(`TEXT ${specX},${specLineY},"2",0,1,1,"${modelLines[i]}"`);
     specLineY += 20;
   }
 
-  // Top section bottom boundary (ensures Asset Name NEVER collides with QR code)
-  const qrEstimatedBottom = curY + 162;
+  // Top section bottom boundary (approx 180 dots for cellWidth 5)
+  const qrEstimatedBottom = curY + (cellWidth === 5 ? 180 : 150);
   const topSectionBottom = Math.max(qrEstimatedBottom, specLineY);
 
-  // 2. BOTTOM SECTION (Anchored directly at the very bottom of the label)
+  // 2. BOTTOM SECTION (Anchored cleanly at bottom)
   const printableW = dotsW - marginX * 2;
-  const bottomMargin = 12;
+  const bottomMargin = 10;
   const addrLine2Y = dotsH - bottomMargin - 12; // Font 1 height 12
   const addrLine1Y = addrLine2Y - 14;           // 14 dots line spacing
-  const supplierY = addrLine1Y - 24;            // Font 2 height 20
+  const supplierY = addrLine1Y - 22;            // Font 2 height 20
   const propertyY = supplierY - 16;             // Font 1 height 12
 
   // 3. MIDDLE SECTION (Asset Name, Tahun Pembelian, Serial Number)
-  // Evenly distributed in the generous space between top section and bottom section
-  const midStartY = topSectionBottom + 18;
-  const midAvailable = propertyY - midStartY - 10;
-  const midStep = Math.max(22, Math.min(32, Math.floor(midAvailable / 3)));
+  const midStartY = topSectionBottom + 12;
+  const midAvailable = propertyY - midStartY - 8;
+  const midStep = Math.max(22, Math.min(30, Math.floor(midAvailable / 3)));
 
   const maxCharsFull = Math.floor(printableW / 12);
   const assetName = clean(label.name);
@@ -133,14 +131,11 @@ export function buildTsplCommand(label: LabelData, options: PrintOptions = {}) {
   lines.push(`TEXT ${marginX},${midStartY + midStep * 2},"2",0,1,1,"Serial Number: ${serialStr.substring(0, maxCharsFull)}"`);
 
   // Render Bottom Section
-  // Property (smaller font size)
   lines.push(`TEXT ${marginX},${propertyY},"1",0,1,1,"Property"`);
 
-  // Supplier Name
   const supplier = clean(label.supplier);
   lines.push(`TEXT ${marginX},${supplierY},"2",0,1,1,"${supplier.substring(0, maxCharsFull)}"`);
 
-  // Address (Wrapped to 38 chars per line so it NEVER cuts off on right edge)
   const address = clean(label.address || DEFAULT_ADDRESS);
   const addressLines = wrapTextLines(address, 38);
   lines.push(`TEXT ${marginX},${addrLine1Y},"1",0,1,1,"${addressLines[0] || ''}"`);

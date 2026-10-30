@@ -57,9 +57,9 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
   const getQrText = () => {
     if (qrType === 'url') {
       if (typeof window !== 'undefined') {
-        return `${window.location.origin}/assets?id=${asset.id}`;
+        return `${window.location.origin}/assets/${asset.id}`;
       }
-      return `https://inventory.skyconnection.id/assets?id=${asset.id}`;
+      return `https://inventory.skyconnection.id/assets/${asset.id}`;
     }
     if (qrType === 'full') {
       return `Asset: ${name}\nS/N: ${serial}\nModel: ${model}\nSupplier: ${supplier}`;
@@ -70,7 +70,7 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
   // Generate QR Code image
   useEffect(() => {
     const text = getQrText();
-    QRCode.toDataURL(text, { width: 130, margin: 1, errorCorrectionLevel: 'M' })
+    QRCode.toDataURL(text, { width: 140, margin: 1, errorCorrectionLevel: 'M' })
       .then((url) => setQrDataUrl(url))
       .catch((err) => console.error(err));
   }, [qrType, customQr, name, serial, model, supplier, asset.id]);
@@ -189,24 +189,24 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
           .top-row {
             display: flex;
             align-items: flex-start;
-            gap: 2.5mm;
+            gap: 2mm;
             width: 100%;
           }
           .qr-col {
-            width: 46%;
+            width: 42%;
             display: flex;
             align-items: center;
             justify-content: flex-start;
           }
           .qr-img {
-            width: 20mm;
-            height: 20mm;
+            width: 22.5mm;
+            height: 22.5mm;
             max-width: 100%;
             object-fit: contain;
           }
           .spec-col {
-            width: 52%;
-            padding-left: 1mm;
+            width: 56%;
+            padding-left: 0.5mm;
           }
           .spec-title {
             font-size: 8pt;
@@ -411,18 +411,18 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
                   }}
                   className="shadow-md"
                 >
-                  {/* Top row: 50 / 50 split table */}
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', width: '100%' }}>
+                  {/* Top row: Enlarged QR + adjacent Specification (matching TSPL cellWidth 5) */}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', width: '100%' }}>
                     {/* Left half: QR Code */}
-                    <div style={{ width: '48%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '42%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
                       {qrDataUrl ? (
-                        <img src={qrDataUrl} alt="QR" style={{ width: '115px', height: '115px', objectFit: 'contain' }} />
+                        <img src={qrDataUrl} alt="QR" style={{ width: '125px', height: '125px', objectFit: 'contain' }} />
                       ) : (
-                        <div style={{ width: '115px', height: '115px', background: '#f1f5f9' }} />
+                        <div style={{ width: '125px', height: '125px', background: '#f1f5f9' }} />
                       )}
                     </div>
-                    {/* Right half: Specification + Margin + Multi-line Model */}
-                    <div style={{ width: '50%', flex: 1, minWidth: 0, paddingLeft: '2px' }}>
+                    {/* Right half: Specification directly adjacent to QR */}
+                    <div style={{ width: '56%', flex: 1, minWidth: 0, paddingLeft: '2px' }}>
                       <div style={{ fontSize: '13px', fontWeight: 700, color: '#000', lineHeight: 1.2 }}>
                         Specification :
                       </div>
@@ -431,11 +431,11 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
                           fontSize: '11px',
                           fontWeight: 500,
                           color: '#111',
-                          marginTop: '8px',
+                          marginTop: '6px',
                           lineHeight: 1.35,
                           whiteSpace: 'pre-wrap',
                           wordBreak: 'break-word',
-                          maxHeight: '100px',
+                          maxHeight: '105px',
                           overflow: 'hidden',
                         }}
                       >

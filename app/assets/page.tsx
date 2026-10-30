@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Box,
   Plus,
@@ -23,11 +24,23 @@ import AssetModal from '@/components/AssetModal';
 import { getStatusInfo } from '@/lib/status';
 
 export default function AssetsPage() {
+  const router = useRouter();
   const [assets, setAssets] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // If redirected or scanned with legacy query parameter ?id=1, route to /assets/:id
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const idParam = params.get('id');
+      if (idParam && /^\d+$/.test(idParam)) {
+        router.replace(`/assets/${idParam}`);
+      }
+    }
+  }, [router]);
 
   // Filters
   const [search, setSearch] = useState('');

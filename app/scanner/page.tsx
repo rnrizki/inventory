@@ -65,14 +65,11 @@ export default function QrScannerPage() {
 
     let val = decodedText.trim();
 
-    // 1. If scanned content is a direct URL (e.g. https://inventory.skyconnection.id/assets/1)
-    if (val.includes('/assets/')) {
-      const parts = val.split('/assets/');
-      const rawId = parts[parts.length - 1].split('?')[0].split('#')[0].replace(/\D/g, '');
-      if (rawId) {
-        router.push(`/assets/${rawId}`);
-        return;
-      }
+    // 1. If scanned content contains an asset URL (e.g. /assets/1, /assets?id=1, or ?id=1)
+    const urlMatch = val.match(/(?:\/assets\/|\/assets\?id=|[\?&]id=)(\d+)/i);
+    if (urlMatch && urlMatch[1]) {
+      router.push(`/assets/${urlMatch[1]}`);
+      return;
     }
 
     // 2. If it's a numeric ID (e.g. "1")
@@ -90,10 +87,14 @@ export default function QrScannerPage() {
       }
     }
 
-    // 3. Search by Serial Number or Model or Name
+    // 3. If scanned content contains S/N or Serial label (e.g. from "Full Asset Info" QR)
+    const snMatch = val.match(/(?:S\/N|Serial|SN)[\s:]+([^\r\n,;]+)/i);
+    const queryTerm = snMatch && snMatch[1] ? snMatch[1].trim() : val;
+
+    // 4. Search by Serial Number or Model or Name
     setSearching(true);
     try {
-      const res = await fetch(`/api/assets?q=${encodeURIComponent(val)}`);
+      const res = await fetch(`/api/assets?q=${encodeURIComponent(queryTerm)}`);
       const json = await res.json();
       if (json.success && json.data && json.data.length > 0) {
         router.push(`/assets/${json.data[0].id}`);
