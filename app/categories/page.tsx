@@ -9,6 +9,16 @@ export default function CategoriesPage() {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ email: string; role: string; canEdit: boolean } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.authenticated && d.user) setCurrentUser(d.user);
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchCategories = async () => {
     try {
@@ -58,47 +68,49 @@ export default function CategoriesPage() {
         <p className="text-xs text-slate-500 mt-1">Master data kategori perangkat dan pengelompokan aset</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 ${currentUser?.canEdit ? 'md:grid-cols-3' : ''} gap-6`}>
         {/* Form Add */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <h2 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-            <Plus className="w-4 h-4 text-blue-600" /> Add Category
-          </h2>
-          <form onSubmit={handleAdd} className="space-y-3">
-            <div>
-              <label className="text-xs font-semibold text-slate-700 mb-1 block">Category Name *</label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Server, Monitor, Printer"
-                className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-700 mb-1 block">Description</label>
-              <textarea
-                rows={2}
-                value={desc}
-                onChange={(e) => setDesc(e.target.value)}
-                placeholder="Brief description..."
-                className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5"
-            >
-              <Save className="w-3.5 h-3.5" />
-              {isSubmitting ? 'Saving...' : 'Save Category'}
-            </button>
-          </form>
-        </div>
+        {currentUser?.canEdit && (
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <h2 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+              <Plus className="w-4 h-4 text-blue-600" /> Add Category
+            </h2>
+            <form onSubmit={handleAdd} className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 mb-1 block">Category Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Server, Monitor, Printer"
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-700 mb-1 block">Description</label>
+                <textarea
+                  rows={2}
+                  value={desc}
+                  onChange={(e) => setDesc(e.target.value)}
+                  placeholder="Brief description..."
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {isSubmitting ? 'Saving...' : 'Save Category'}
+              </button>
+            </form>
+          </div>
+        )}
 
         {/* List */}
-        <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className={`${currentUser?.canEdit ? 'md:col-span-2' : ''} bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden`}>
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider">All Categories</h2>
             <span className="text-xs text-slate-400 font-semibold">{categories.length} total</span>

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { requirePrivilegedUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +51,9 @@ function parseCSV(text: string): string[][] {
 }
 
 export async function POST(request: Request) {
+  const authError = requirePrivilegedUser();
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const { csvText, simulate = false } = body;

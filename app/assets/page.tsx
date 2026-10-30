@@ -38,6 +38,16 @@ export default function AssetsPage() {
   const [selectedAssetForPrint, setSelectedAssetForPrint] = useState<any>(null);
   const [assetToEdit, setAssetToEdit] = useState<any>(null);
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ email: string; role: string; canEdit: boolean } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.authenticated && d.user) setCurrentUser(d.user);
+      })
+      .catch(() => {});
+  }, []);
 
   const formatRupiah = (val: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -113,23 +123,25 @@ export default function AssetsPage() {
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Manage Assets</h1>
           <p className="text-xs text-slate-500 mt-1">Daftar inventaris aset, pencarian, dan cetak label Xprinter</p>
         </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <a
-            href="/assets/import"
-            className="inline-flex items-center gap-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3.5 py-2.5 rounded-xl text-sm font-bold shadow-xs transition"
-          >
-            <Plus className="w-4 h-4 text-slate-600" /> Add Asset in Bulk
-          </a>
-          <button
-            onClick={() => {
-              setAssetToEdit(null);
-              setIsAssetModalOpen(true);
-            }}
-            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition"
-          >
-            <Plus className="w-4 h-4" /> Add Asset
-          </button>
-        </div>
+        {currentUser?.canEdit && (
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <a
+              href="/assets/import"
+              className="inline-flex items-center gap-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3.5 py-2.5 rounded-xl text-sm font-bold shadow-xs transition"
+            >
+              <Plus className="w-4 h-4 text-slate-600" /> Add Asset in Bulk
+            </a>
+            <button
+              onClick={() => {
+                setAssetToEdit(null);
+                setIsAssetModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition"
+            >
+              <Plus className="w-4 h-4" /> Add Asset
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -298,23 +310,27 @@ export default function AssetsPage() {
                           <Printer className="w-3.5 h-3.5" />
                           <span>Print</span>
                         </button>
-                        <button
-                          onClick={() => {
-                            setAssetToEdit(asset);
-                            setIsAssetModalOpen(true);
-                          }}
-                          className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                          title="Edit Asset"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(asset.id, asset.asset_name)}
-                          className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                          title="Delete Asset"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {currentUser?.canEdit && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setAssetToEdit(asset);
+                                setIsAssetModalOpen(true);
+                              }}
+                              className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                              title="Edit Asset"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(asset.id, asset.asset_name)}
+                              className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                              title="Delete Asset"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

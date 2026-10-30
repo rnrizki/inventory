@@ -7,12 +7,22 @@ export default function AuditsPage() {
   const [audits, setAudits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ email: string; role: string; canEdit: boolean } | null>(null);
   const [form, setForm] = useState({
     audit_name: '',
     audit_date: new Date().toISOString().split('T')[0],
     auditor: 'Admin',
     notes: '',
   });
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.authenticated && d.user) setCurrentUser(d.user);
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchAudits = async () => {
     try {
@@ -58,12 +68,14 @@ export default function AuditsPage() {
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Physical Asset Audits</h1>
           <p className="text-sm text-slate-500 mt-1">Audit cycles, physical verification, and inventory count reports.</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition"
-        >
-          <Plus className="w-4 h-4" /> Start New Audit
-        </button>
+        {currentUser?.canEdit && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition"
+          >
+            <Plus className="w-4 h-4" /> Start New Audit
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">

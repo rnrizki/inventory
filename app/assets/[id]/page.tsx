@@ -53,6 +53,16 @@ export default function AssetDetailPage() {
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ email: string; role: string; canEdit: boolean } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.authenticated && d.user) setCurrentUser(d.user);
+      })
+      .catch(() => {});
+  }, []);
 
   // Form states
   const [allocateName, setAllocateName] = useState('');
@@ -258,12 +268,14 @@ export default function AssetDetailPage() {
 
             {/* Top Right Action Buttons */}
             <div className="flex items-center flex-wrap gap-2">
-              <button
-                onClick={() => setShowEditModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 shadow-xs transition"
-              >
-                <Edit className="w-3.5 h-3.5" /> Edit
-              </button>
+              {currentUser?.canEdit && (
+                <button
+                  onClick={() => setShowEditModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 shadow-xs transition"
+                >
+                  <Edit className="w-3.5 h-3.5" /> Edit
+                </button>
+              )}
 
               <button
                 onClick={() => window.print()}
@@ -295,24 +307,26 @@ export default function AssetDetailPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         {/* Quick Lifecycle Action Buttons Toolbar */}
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Asset Actions & Lifecycle Status</span>
-            <span className="text-xs text-slate-400">Click any action to update status immediately</span>
+        {currentUser?.canEdit && (
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Asset Actions & Lifecycle Status</span>
+              <span className="text-xs text-slate-400">Click any action to update status immediately</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {quickActions.map((act) => (
+                <button
+                  key={act.label}
+                  onClick={act.onClick}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border bg-white transition shadow-xs ${act.bg}`}
+                >
+                  <span>{act.icon}</span>
+                  {act.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {quickActions.map((act) => (
-              <button
-                key={act.label}
-                onClick={act.onClick}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border bg-white transition shadow-xs ${act.bg}`}
-              >
-                <span>{act.icon}</span>
-                {act.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        )}
 
         {/* Tab Navigation matching Perfex CRM Asset Central */}
         <div className="border-b border-slate-200 mb-6 bg-white rounded-t-xl px-4 pt-2 shadow-xs">
@@ -473,12 +487,14 @@ export default function AssetDetailPage() {
           <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-slate-800">Asset Events Timeline</h3>
-              <button
-                onClick={() => handleQuickStatus('maintenance')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700"
-              >
-                <Plus className="w-3.5 h-3.5" /> Log Event
-              </button>
+              {currentUser?.canEdit && (
+                <button
+                  onClick={() => handleQuickStatus('maintenance')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Log Event
+                </button>
+              )}
             </div>
             {asset.events?.length === 0 ? (
               <p className="text-xs text-slate-400 py-6 text-center">No events recorded for this asset.</p>
@@ -556,12 +572,14 @@ export default function AssetDetailPage() {
           <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-slate-800">Maintenance & Warranty Reminders</h3>
-              <button
-                onClick={() => setShowReminderModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Reminder
-              </button>
+              {currentUser?.canEdit && (
+                <button
+                  onClick={() => setShowReminderModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Reminder
+                </button>
+              )}
             </div>
             {asset.reminders?.length === 0 ? (
               <p className="text-xs text-slate-400 py-6 text-center">No reminders set for this asset.</p>
@@ -591,12 +609,14 @@ export default function AssetDetailPage() {
           <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-slate-800">Staff Notes & Remarks</h3>
-              <button
-                onClick={() => setShowNoteModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Note
-              </button>
+              {currentUser?.canEdit && (
+                <button
+                  onClick={() => setShowNoteModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Note
+                </button>
+              )}
             </div>
             {asset.notes?.length === 0 ? (
               <p className="text-xs text-slate-400 py-6 text-center">No notes added yet.</p>

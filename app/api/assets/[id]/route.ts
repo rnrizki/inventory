@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { requirePrivilegedUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +51,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
 }
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
+  const authError = requirePrivilegedUser();
+  if (authError) return authError;
+
   try {
     const id = Number(params.id);
     const body = await request.json();
@@ -140,6 +144,9 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  const authError = requirePrivilegedUser();
+  if (authError) return authError;
+
   try {
     const id = Number(params.id);
     await db.execute('DELETE FROM asset_history WHERE asset_id = ?', [id]);

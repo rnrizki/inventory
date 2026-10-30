@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { requirePrivilegedUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
+  const authError = requirePrivilegedUser();
+  if (authError) return authError;
+
   try {
     const assetId = Number(params.id);
     const body = await request.json();
