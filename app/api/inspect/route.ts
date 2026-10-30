@@ -14,23 +14,24 @@ export async function GET(request: Request) {
   });
 
   try {
-    const tables = [
-      'a', 'f', 'j', 'w', 'k', 'm', 'p', 's', 'g', 'e', 'q', 'h', 'r', 'l',
-      't', 'd', 'o', 'x', 'i', 'b', 'n', 'u', 'y', 's_trace', 's_email', 's_cal', 's_card'
-    ];
-    const counts: Record<string, number> = {};
-
-    for (const t of tables) {
-      try {
-        const res = await stalwartPool.query(`SELECT COUNT(*) as cnt FROM "${t}";`);
-        counts[t] = parseInt(res.rows[0].cnt, 10);
-      } catch (e: any) {
-        counts[t] = -1;
-      }
+    const results: any = {};
+    for (const t of ['d', 'w', 't', 'm']) {
+      const rows = await stalwartPool.query(`SELECT * FROM "${t}";`);
+      results[t] = rows.rows.map((r: any) => {
+        const rowClean: any = {};
+        for (const [k, v] of Object.entries(r)) {
+          if (Buffer.isBuffer(v)) {
+            rowClean[k] = v.toString('utf8').replace(/[^\x20-\x7E]/g, '.');
+          } else {
+            rowClean[k] = v;
+          }
+        }
+        return rowClean;
+      });
     }
     await stalwartPool.end();
 
-    return NextResponse.json(counts);
+    return NextResponse.json(results);
   } catch (err: any) {
     return NextResponse.json({ error: err.message });
   }
