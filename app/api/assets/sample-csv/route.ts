@@ -3,11 +3,11 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const csvContent = `asset_name,category_name,location_name,model_number,serial_number,purchase_cost,purchase_date,supplier_name,supplier_phone_number,supplier_address,assigned_to,warranty_period_month
-"ThinkPad X1 Carbon","Laptop PC","Head Office","Intel Core i7 / 16GB RAM / 512GB SSD","TP-98234123",15000000,"2026-01-15","PT. Angan Kreasi Semesta","08123456789","Jl. Gotong Royong I No.50 . Ragunan, Ps. Minggu, Kota Jakarta Selatan.","Ahmad Fauzi",24
-"Dell UltraSharp 27 Inch","Monitor","Head Office","4K IPS Display U2723QE","DEL-4412998",6500000,"2026-02-10","PT. Angan Kreasi Semesta","08123456789","Jl. Gotong Royong I No.50 . Ragunan, Ps. Minggu, Kota Jakarta Selatan.","",36
-"Xprinter XP-420B","Thermal Printer","Warehouse","203 DPI TSPL USB Thermal Barcode Printer","XP420B-883120",950000,"2026-03-01","PT. Angan Kreasi Semesta","08123456789","Jl. Gotong Royong I No.50 . Ragunan, Ps. Minggu, Kota Jakarta Selatan.","Warehouse Team",12
-"MacBook Pro 14 M3 Pro","Laptop PC","Head Office","18GB Unified Memory / 512GB SSD","MBP14-992381",28000000,"2026-04-12","PT. Angan Kreasi Semesta","08123456789","Jl. Gotong Royong I No.50 . Ragunan, Ps. Minggu, Kota Jakarta Selatan.","Rizki Noorfauzan",12`;
+  const csvContent = `asset_name,category_name,location_name,model_number,serial_number,purchase_cost,purchase_date,supplier_name,supplier_phone_number,supplier_address,assigned_to,warranty_period_month,asset_image
+"ThinkPad X1 Carbon","Laptop PC","Head Office","Intel Core i7 / 16GB RAM / 512GB SSD","TP-98234123",15000000,"2026-01-15","PT. Angan Kreasi Semesta","08123456789","Jl. Gotong Royong I No.50 . Ragunan, Ps. Minggu, Kota Jakarta Selatan.","Ahmad Fauzi",24,"https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600"
+"Dell UltraSharp 27 Inch","Monitor","Head Office","4K IPS Display U2723QE","DEL-4412998",6500000,"2026-02-10","PT. Angan Kreasi Semesta","08123456789","Jl. Gotong Royong I No.50 . Ragunan, Ps. Minggu, Kota Jakarta Selatan.","",36,"https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=600"
+"Xprinter XP-420B","Thermal Printer","Warehouse","203 DPI TSPL USB Thermal Barcode Printer","XP420B-883120",950000,"2026-03-01","PT. Angan Kreasi Semesta","08123456789","Jl. Gotong Royong I No.50 . Ragunan, Ps. Minggu, Kota Jakarta Selatan.","Warehouse Team",12,"https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?w=600"
+"MacBook Pro 14 M3 Pro","Laptop PC","Head Office","18GB Unified Memory / 512GB SSD","MBP14-992381",28000000,"2026-04-12","PT. Angan Kreasi Semesta","08123456789","Jl. Gotong Royong I No.50 . Ragunan, Ps. Minggu, Kota Jakarta Selatan.","Rizki Noorfauzan",12,"https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600"`;
 
   return new NextResponse(csvContent, {
     status: 200,

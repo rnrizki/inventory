@@ -274,11 +274,25 @@ export default function AssetsPage() {
                   <tr key={asset.id} className="hover:bg-slate-50/60 transition">
                     <td className="py-3.5 px-4 font-mono text-xs text-slate-400">{idx + 1}</td>
                     <td className="py-3.5 px-4 font-bold text-slate-900">
-                      <a href={`/assets/${asset.id}`} className="hover:text-blue-600 transition inline-flex items-center gap-1 group">
-                        <span>{asset.asset_name}</span>
-                        <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-blue-600" />
-                      </a>
-                      <div className="text-xs text-slate-400 font-normal">{asset.supplier_name}</div>
+                      <div className="flex items-center gap-3">
+                        {asset.asset_image ? (
+                          <img
+                            src={asset.asset_image}
+                            alt=""
+                            className="w-9 h-9 object-cover rounded-lg border border-slate-200 shrink-0 bg-white"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+                        <div>
+                          <a href={`/assets/${asset.id}`} className="hover:text-blue-600 transition inline-flex items-center gap-1 group">
+                            <span>{asset.asset_name}</span>
+                            <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-blue-600" />
+                          </a>
+                          <div className="text-xs text-slate-400 font-normal">{asset.supplier_name}</div>
+                        </div>
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 font-mono text-xs text-slate-600">{asset.serial_number || '-'}</td>
                     <td className="py-3.5 px-4 text-xs text-slate-600 max-w-xs truncate" title={asset.model_number}>

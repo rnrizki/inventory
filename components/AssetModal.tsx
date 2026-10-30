@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Save } from 'lucide-react';
+import { X, Save, Upload, Image as ImageIcon, Link as LinkIcon, Trash2 } from 'lucide-react';
+import { fileToOptimizedDataUrl } from '@/lib/image-upload';
 
 interface Props {
   isOpen: boolean;
@@ -33,6 +34,9 @@ export default function AssetModal({
   const [locationId, setLocationId] = useState('');
   const [status, setStatus] = useState('1');
   const [assignedTo, setAssignedTo] = useState('');
+  const [image, setImage] = useState('');
+  const [imageMode, setImageMode] = useState<'upload' | 'url'>('upload');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -49,6 +53,7 @@ export default function AssetModal({
       setLocationId(assetToEdit.location_id ? String(assetToEdit.location_id) : '');
       setStatus(assetToEdit.asset_status ? String(assetToEdit.asset_status) : '1');
       setAssignedTo(assetToEdit.assigned_to || '');
+      setImage(assetToEdit.asset_image || '');
     } else {
       setName('');
       setDescription('');
@@ -61,6 +66,7 @@ export default function AssetModal({
       setLocationId(locations[0]?.id ? String(locations[0].id) : '');
       setStatus('1');
       setAssignedTo('');
+      setImage('');
     }
   }, [assetToEdit, categories, locations]);
 
@@ -77,6 +83,7 @@ export default function AssetModal({
     const payload = {
       asset_name: name,
       asset_description: description,
+      asset_image: image,
       model_number: model,
       serial_number: serial,
       purchase_cost: Number(cost) || 0,
@@ -179,6 +186,103 @@ export default function AssetModal({
                 placeholder="Line 1: Apple M1 Pro&#10;Line 2: 16 GB RAM&#10;Line 3: 512 GB SSD"
                 className="w-full text-sm px-3.5 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden bg-white font-mono text-xs"
               />
+            </div>
+
+            {/* Asset Picture / Photo Upload & URL */}
+            <div className="col-span-2 bg-white p-3.5 rounded-xl border border-slate-200">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-blue-600" /> Asset Picture / Photo
+                </label>
+                <div className="flex items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setImageMode('upload')}
+                    className={`px-2.5 py-0.5 rounded-md text-xs font-semibold transition ${
+                      imageMode === 'upload'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    Upload File
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImageMode('url')}
+                    className={`px-2.5 py-0.5 rounded-md text-xs font-semibold transition ${
+                      imageMode === 'url'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    Direct URL
+                  </button>
+                </div>
+              </div>
+
+              {image ? (
+                <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                  <img
+                    src={image}
+                    alt="Preview"
+                    className="w-14 h-14 object-contain bg-white rounded-md border border-slate-200 p-1"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
+                    }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-slate-800 truncate">
+                      {image.startsWith('data:') ? 'Image uploaded (Optimized)' : image}
+                    </p>
+                    <p className="text-[11px] text-slate-400">Photo will be saved with this asset</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setImage('')}
+                    className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-md transition"
+                    title="Remove Image"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : imageMode === 'upload' ? (
+                <div>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/avif,image/bmp"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      try {
+                        setUploadingImage(true);
+                        const dataUrl = await fileToOptimizedDataUrl(f);
+                        setImage(dataUrl);
+                      } catch (err: any) {
+                        alert(err.message || 'Failed to process image');
+                      } finally {
+                        setUploadingImage(false);
+                      }
+                    }}
+                    className="text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-slate-500 cursor-pointer w-full"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Supports PNG, JPG, JPEG, WEBP, GIF, SVG, BMP (Auto-optimized)
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    type="url"
+                    value={image}
+                    onChange={(e) => setImage(e.target.value)}
+                    placeholder="https://example.com/images/macbook.jpg"
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden bg-white"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Paste a direct image source URL
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="col-span-2 sm:col-span-1">

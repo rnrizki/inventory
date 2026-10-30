@@ -39,6 +39,7 @@ export default function ImportAssetsPage() {
     'Supplier address',
     'Assigned to',
     'Warranty (months)',
+    'Asset Image (Direct URL)',
   ];
 
   const sampleRows = [
@@ -55,6 +56,7 @@ export default function ImportAssetsPage() {
       'Jl. Gotong Royong I No.50',
       'Ahmad Fauzi',
       '24',
+      'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600',
     ],
     [
       'Dell UltraSharp 27"',
@@ -69,6 +71,7 @@ export default function ImportAssetsPage() {
       'Jl. Gotong Royong I No.50',
       '',
       '36',
+      'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=600',
     ],
     [
       'Xprinter XP-420B',
@@ -83,6 +86,7 @@ export default function ImportAssetsPage() {
       'Jl. Gotong Royong I No.50',
       'Warehouse Team',
       '12',
+      'https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?w=600',
     ],
   ];
 
@@ -181,6 +185,9 @@ export default function ImportAssetsPage() {
           </li>
           <li>
             Columns marked with <strong className="text-rose-600 font-bold">*</strong> (<code className="text-rose-600 font-bold">* Asset name</code>) are required.
+          </li>
+          <li>
+            <strong className="text-blue-950 font-bold">Image URL / Picture:</strong> Include an <code>asset_image</code> or <code>image_url</code> column with a direct image link (e.g. <code>https://.../photo.jpg</code>) to automatically import asset photos in bulk!
           </li>
         </ol>
       </div>
@@ -320,6 +327,7 @@ export default function ImportAssetsPage() {
                 <tr>
                   <th className="py-3 px-4">Row</th>
                   <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Photo</th>
                   <th className="py-3 px-4">Asset Name</th>
                   <th className="py-3 px-4">Category</th>
                   <th className="py-3 px-4">Location</th>
@@ -341,6 +349,20 @@ export default function ImportAssetsPage() {
                         <span className="inline-flex items-center gap-1 text-rose-700 bg-rose-50 px-2 py-0.5 rounded text-[10px] font-bold border border-rose-200">
                           <X className="w-3 h-3" /> {row.errors?.join(', ')}
                         </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4">
+                      {row.data.asset_image ? (
+                        <img
+                          src={row.data.asset_image}
+                          alt=""
+                          className="w-9 h-9 object-cover rounded-lg border border-slate-200 bg-white"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <span className="text-slate-300">-</span>
                       )}
                     </td>
                     <td className="py-3 px-4 font-bold text-slate-800">{row.data.asset_name || '-'}</td>

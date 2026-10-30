@@ -61,6 +61,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     const {
       asset_name,
       asset_description,
+      asset_image,
       serial_number,
       model_number,
       purchase_cost,
@@ -85,6 +86,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       UPDATE assets SET
         asset_name = ?,
         asset_description = ?,
+        asset_image = CASE WHEN ?::text IS NOT NULL THEN ?::text ELSE asset_image END,
         serial_number = ?,
         model_number = ?,
         purchase_cost = ?,
@@ -111,6 +113,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     const asset = await db.queryOne(updateSql, [
       asset_name,
       asset_description || '',
+      asset_image !== undefined ? asset_image : null,
+      asset_image !== undefined ? asset_image : null,
       serial_number || '',
       model_number || '',
       Number(purchase_cost) || 0,

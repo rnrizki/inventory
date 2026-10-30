@@ -54,6 +54,7 @@ export async function POST(request: Request) {
     const {
       asset_name,
       asset_description,
+      asset_image,
       serial_number,
       model_number,
       purchase_cost,
@@ -73,16 +74,17 @@ export async function POST(request: Request) {
 
     const insertSql = `
       INSERT INTO assets (
-        asset_name, asset_description, serial_number, model_number,
+        asset_name, asset_description, asset_image, serial_number, model_number,
         purchase_cost, purchase_date, supplier_name, supplier_phone,
         supplier_address, category_id, location_id, asset_status, assigned_to
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *;
     `;
 
     const asset = await db.queryOne(insertSql, [
       asset_name,
       asset_description || '',
+      asset_image || '',
       serial_number || '',
       model_number || '',
       Number(purchase_cost) || 0,

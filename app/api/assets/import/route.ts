@@ -88,6 +88,20 @@ export async function POST(request: Request) {
       });
 
       const assetName = rowData.asset_name || rowData.name || '';
+      const rawImageUrl =
+        rowData.asset_image ||
+        rowData.image_url ||
+        rowData.image ||
+        rowData.photo_url ||
+        rowData.photo ||
+        rowData.picture_url ||
+        rowData.picture ||
+        rowData.foto ||
+        rowData.gambar ||
+        rowData.url_gambar ||
+        rowData.url_foto ||
+        '';
+      const assetImage = rawImageUrl.trim();
       const errors: string[] = [];
 
       if (!assetName) {
@@ -105,6 +119,7 @@ export async function POST(request: Request) {
         data: {
           asset_name: assetName,
           asset_description: rowData.asset_description || rowData.description || '',
+          asset_image: assetImage,
           serial_number: rowData.serial_number || rowData.serial || '',
           model_number: rowData.model_number || rowData.model || rowData.specification || '',
           purchase_cost: Number(rowData.purchase_cost || rowData.cost) || 0,
@@ -182,16 +197,17 @@ export async function POST(request: Request) {
 
         const assetRes = await client.query(`
           INSERT INTO assets (
-            asset_name, asset_description, serial_number, model_number,
+            asset_name, asset_description, asset_image, serial_number, model_number,
             purchase_cost, purchase_date, supplier_name, supplier_phone,
             supplier_address, category_id, location_id, asset_status, assigned_to,
             warranty_period_month, depreciation_months, depreciation_percentage,
             residual_value, depreciation_method
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
           RETURNING id;
         `, [
           d.asset_name,
           d.asset_description,
+          d.asset_image || '',
           d.serial_number,
           d.model_number,
           d.purchase_cost,
