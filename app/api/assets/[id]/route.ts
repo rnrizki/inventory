@@ -6,34 +6,35 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const id = Number(params.id);
-    const asset = db.prepare(`
+    const asset = await db.queryOne(`
       SELECT a.*, c.name as category_name, l.name as location_name
       FROM assets a
       LEFT JOIN categories c ON a.category_id = c.id
       LEFT JOIN locations l ON a.location_id = l.id
       WHERE a.id = ?
-    `).get(id);
+    `, [id]);
 
     if (!asset) {
       return NextResponse.json({ success: false, error: 'Asset not found' }, { status: 404 });
     }
 
-    const events = db.prepare('SELECT * FROM asset_events WHERE asset_id = ? ORDER BY id DESC').all(id);
-    const history = db.prepare('SELECT * FROM asset_history WHERE asset_id = ? ORDER BY id DESC').all(id);
-    const files = db.prepare('SELECT * FROM asset_files WHERE asset_id = ? ORDER BY id DESC').all(id);
-    const reminders = db.prepare('SELECT * FROM asset_reminders WHERE asset_id = ? ORDER BY id DESC').all(id);
-    const notes = db.prepare('SELECT * FROM asset_notes WHERE asset_id = ? ORDER BY id DESC').all(id);
-    const maintenance = db.prepare('SELECT * FROM asset_maintenance WHERE asset_id = ? ORDER BY id DESC').all(id);
-    const audits = db.prepare(`
-      SELECT * FROM asset_audits 
-      WHERE assets_list LIKE ? OR assets_list IS NULL OR assets_list = ''
-      ORDER BY id DESC
-    `).all(`%"${id}"%`);
+    const [events, history, files, reminders, notes, maintenance, audits] = await Promise.all([
+      db.query('SELECT * FROM asset_events WHERE asset_id = ? ORDER BY id DESC', [id]),
+      db.query('SELECT * FROM asset_history WHERE asset_id = ? ORDER BY id DESC', [id]),
+      db.query('SELECT * FROM asset_files WHERE asset_id = ? ORDER BY id DESC', [id]),
+      db.query('SELECT * FROM asset_reminders WHERE asset_id = ? ORDER BY id DESC', [id]),
+      db.query('SELECT * FROM asset_notes WHERE asset_id = ? ORDER BY id DESC', [id]),
+      db.query('SELECT * FROM asset_maintenance WHERE asset_id = ? ORDER BY id DESC', [id]),
+      db.query(
+        `SELECT * FROM asset_audits WHERE assets_list LIKE ? OR assets_list IS NULL OR assets_list = '' ORDER BY id DESC`,
+        [`%"${id}"%`]
+      ),
+    ]);
 
     return NextResponse.json({
       success: true,
       data: {
-        ...(asset as any),
+        ...asset,
         events,
         history,
         files,
@@ -76,7 +77,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       appreciation_periods,
     } = body;
 
-    const stmt = db.prepare(`
+    const updateSql = `
       UPDATE assets SET
         asset_name = ?,
         asset_description = ?,
@@ -100,9 +101,10 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         appreciation_periods = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `);
+      RETURNING *;
+    `;
 
-    stmt.run(
+    const asset = await db.queryOne(updateSql, [
       asset_name,
       asset_description || '',
       serial_number || '',
@@ -123,12 +125,14 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       depreciation_method || 'reducing_balance',
       appreciation_rate || '',
       appreciation_periods || '',
-      id
+      id,
+    ]);
+
+    await db.execute(
+      `INSERT INTO asset_history (asset_id, action, note) VALUES (?, 'Updated', 'Asset details modified')`,
+      [id]
     );
 
-    db.prepare(`INSERT INTO asset_history (asset_id, action, note) VALUES (?, 'Updated', 'Asset details modified')`).run(id);
-
-    const asset = db.prepare('SELECT * FROM assets WHERE id = ?').get(id);
     return NextResponse.json({ success: true, data: asset });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -138,13 +142,13 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
     const id = Number(params.id);
-    db.prepare('DELETE FROM asset_history WHERE asset_id = ?').run(id);
-    db.prepare('DELETE FROM asset_events WHERE asset_id = ?').run(id);
-    db.prepare('DELETE FROM asset_files WHERE asset_id = ?').run(id);
-    db.prepare('DELETE FROM asset_reminders WHERE asset_id = ?').run(id);
-    db.prepare('DELETE FROM asset_notes WHERE asset_id = ?').run(id);
-    db.prepare('DELETE FROM asset_maintenance WHERE asset_id = ?').run(id);
-    db.prepare('DELETE FROM assets WHERE id = ?').run(id);
+    await db.execute('DELETE FROM asset_history WHERE asset_id = ?', [id]);
+    await db.execute('DELETE FROM asset_events WHERE asset_id = ?', [id]);
+    await db.execute('DELETE FROM asset_files WHERE asset_id = ?', [id]);
+    await db.execute('DELETE FROM asset_reminders WHERE asset_id = ?', [id]);
+    await db.execute('DELETE FROM asset_notes WHERE asset_id = ?', [id]);
+    await db.execute('DELETE FROM asset_maintenance WHERE asset_id = ?', [id]);
+    await db.execute('DELETE FROM assets WHERE id = ?', [id]);
     return NextResponse.json({ success: true, message: 'Asset deleted' });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

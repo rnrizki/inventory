@@ -136,35 +136,9 @@ export async function POST(request: Request) {
     }
 
     // Actual Import: execute in transaction
-    const insertAssetStmt = db.prepare(`
-      INSERT INTO assets (
-        asset_name, asset_description, serial_number, model_number,
-        purchase_cost, purchase_date, supplier_name, supplier_phone,
-        supplier_address, category_id, location_id, asset_status, assigned_to,
-        warranty_period_month, depreciation_months, depreciation_percentage,
-        residual_value, depreciation_method
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const insertEventStmt = db.prepare(`
-      INSERT INTO asset_events (asset_id, event_type, notes)
-      VALUES (?, 'Bulk CSV Imported', 'Registered via CSV bulk import')
-    `);
-
-    const insertHistoryStmt = db.prepare(`
-      INSERT INTO asset_history (asset_id, action, note)
-      VALUES (?, 'Created', 'Bulk imported from CSV')
-    `);
-
-    const getCatByName = db.prepare('SELECT id FROM categories WHERE LOWER(name) = LOWER(?)');
-    const insertCat = db.prepare('INSERT INTO categories (name) VALUES (?)');
-
-    const getLocByName = db.prepare('SELECT id FROM locations WHERE LOWER(name) = LOWER(?)');
-    const insertLoc = db.prepare('INSERT INTO locations (name) VALUES (?)');
-
     const importedIds: number[] = [];
 
-    const importTransaction = db.transaction(() => {
+    await db.withTransaction(async (client) => {
       for (const item of validatedRows) {
         if (!item.isValid) continue;
         const d = item.data;
@@ -172,31 +146,46 @@ export async function POST(request: Request) {
         // Resolve Category
         let finalCatId = d.category_id;
         if (!finalCatId && d.category_name) {
-          const found = getCatByName.get(d.category_name) as { id: number } | undefined;
-          if (found) {
-            finalCatId = found.id;
+          const catRes = await client.query('SELECT id FROM categories WHERE LOWER(name) = LOWER($1)', [d.category_name]);
+          if (catRes.rows.length > 0) {
+            finalCatId = catRes.rows[0].id;
           } else {
-            const ins = insertCat.run(d.category_name);
-            finalCatId = Number(ins.lastInsertRowid);
+            const insCat = await client.query(
+              'INSERT INTO categories (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id',
+              [d.category_name]
+            );
+            finalCatId = insCat.rows[0].id;
           }
         }
 
         // Resolve Location
         let finalLocId = d.location_id;
         if (!finalLocId && d.location_name) {
-          const found = getLocByName.get(d.location_name) as { id: number } | undefined;
-          if (found) {
-            finalLocId = found.id;
+          const locRes = await client.query('SELECT id FROM locations WHERE LOWER(name) = LOWER($1)', [d.location_name]);
+          if (locRes.rows.length > 0) {
+            finalLocId = locRes.rows[0].id;
           } else {
-            const ins = insertLoc.run(d.location_name);
-            finalLocId = Number(ins.lastInsertRowid);
+            const insLoc = await client.query(
+              'INSERT INTO locations (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id',
+              [d.location_name]
+            );
+            finalLocId = insLoc.rows[0].id;
           }
         }
 
         // Status: 2 (Allocated) if assigned_to is present, otherwise 1 (Available)
         const finalStatus = d.assigned_to ? 2 : 1;
 
-        const res = insertAssetStmt.run(
+        const assetRes = await client.query(`
+          INSERT INTO assets (
+            asset_name, asset_description, serial_number, model_number,
+            purchase_cost, purchase_date, supplier_name, supplier_phone,
+            supplier_address, category_id, location_id, asset_status, assigned_to,
+            warranty_period_month, depreciation_months, depreciation_percentage,
+            residual_value, depreciation_method
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+          RETURNING id;
+        `, [
           d.asset_name,
           d.asset_description,
           d.serial_number,
@@ -215,17 +204,15 @@ export async function POST(request: Request) {
           d.depreciation_percentage,
           d.residual_value,
           d.depreciation_method
-        );
+        ]);
 
-        const newId = Number(res.lastInsertRowid);
+        const newId = assetRes.rows[0].id;
         importedIds.push(newId);
 
-        insertEventStmt.run(newId);
-        insertHistoryStmt.run(newId);
+        await client.query(`INSERT INTO asset_events (asset_id, event_type, notes) VALUES ($1, 'Bulk CSV Imported', 'Registered via CSV bulk import')`, [newId]);
+        await client.query(`INSERT INTO asset_history (asset_id, action, note) VALUES ($1, 'Created', 'Bulk imported from CSV')`, [newId]);
       }
     });
-
-    importTransaction();
 
     return NextResponse.json({
       success: true,

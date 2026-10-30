@@ -13,12 +13,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.json({ success: false, error: 'Description and date are required' }, { status: 400 });
     }
 
-    const res = db.prepare(`
+    const created = await db.queryOne(`
       INSERT INTO asset_reminders (asset_id, description, reminder_date)
       VALUES (?, ?, ?)
-    `).run(assetId, description, reminder_date);
+      RETURNING *;
+    `, [assetId, description, reminder_date]);
 
-    const created = db.prepare('SELECT * FROM asset_reminders WHERE id = ?').get(res.lastInsertRowid);
     return NextResponse.json({ success: true, data: created });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

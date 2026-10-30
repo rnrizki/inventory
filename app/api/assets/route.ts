@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     const categoryId = searchParams.get('category');
     const status = searchParams.get('status');
 
-    let query = `
+    let queryStr = `
       SELECT a.*, c.name as category_name, l.name as location_name
       FROM assets a
       LEFT JOIN categories c ON a.category_id = c.id
@@ -20,24 +20,24 @@ export async function GET(request: Request) {
     const params: any[] = [];
 
     if (search) {
-      query += ` AND (a.asset_name LIKE ? OR a.serial_number LIKE ? OR a.model_number LIKE ? OR a.supplier_name LIKE ?)`;
+      queryStr += ` AND (a.asset_name ILIKE ? OR a.serial_number ILIKE ? OR a.model_number ILIKE ? OR a.supplier_name ILIKE ?)`;
       const s = `%${search}%`;
       params.push(s, s, s, s);
     }
 
     if (categoryId) {
-      query += ` AND a.category_id = ?`;
+      queryStr += ` AND a.category_id = ?`;
       params.push(Number(categoryId));
     }
 
     if (status) {
-      query += ` AND a.asset_status = ?`;
+      queryStr += ` AND a.asset_status = ?`;
       params.push(Number(status));
     }
 
-    query += ` ORDER BY a.id DESC`;
+    queryStr += ` ORDER BY a.id DESC`;
 
-    const assets = db.prepare(query).all(...params);
+    const assets = await db.query(queryStr, params);
     return NextResponse.json({ success: true, data: assets });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -67,15 +67,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Asset name is required' }, { status: 400 });
     }
 
-    const stmt = db.prepare(`
+    const insertSql = `
       INSERT INTO assets (
         asset_name, asset_description, serial_number, model_number,
         purchase_cost, purchase_date, supplier_name, supplier_phone,
         supplier_address, category_id, location_id, asset_status, assigned_to
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+      RETURNING *;
+    `;
 
-    const result = stmt.run(
+    const asset = await db.queryOne(insertSql, [
       asset_name,
       asset_description || '',
       serial_number || '',
@@ -88,13 +89,16 @@ export async function POST(request: Request) {
       category_id ? Number(category_id) : null,
       location_id ? Number(location_id) : null,
       asset_status ? Number(asset_status) : 1,
-      assigned_to || ''
-    );
+      assigned_to || '',
+    ]);
 
-    const newId = result.lastInsertRowid;
-    db.prepare(`INSERT INTO asset_history (asset_id, action, note) VALUES (?, 'Created', 'Asset registered')`).run(newId);
+    if (asset?.id) {
+      await db.execute(
+        `INSERT INTO asset_history (asset_id, action, note) VALUES (?, 'Created', 'Asset registered')`,
+        [asset.id]
+      );
+    }
 
-    const asset = db.prepare('SELECT * FROM assets WHERE id = ?').get(newId);
     return NextResponse.json({ success: true, data: asset }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

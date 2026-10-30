@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const audits = db.prepare('SELECT * FROM asset_audits ORDER BY id DESC').all();
+    const audits = await db.query('SELECT * FROM asset_audits ORDER BY id DESC');
     return NextResponse.json({ success: true, data: audits });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -21,18 +21,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Audit name is required' }, { status: 400 });
     }
 
-    const res = db.prepare(`
+    const created = await db.queryOne(`
       INSERT INTO asset_audits (audit_name, audit_by, audit_date, assets_list, notes)
       VALUES (?, ?, ?, ?, ?)
-    `).run(
+      RETURNING *;
+    `, [
       audit_name,
       auditor || 'Admin',
       audit_date || new Date().toISOString().split('T')[0],
       typeof assets_list === 'string' ? assets_list : JSON.stringify(assets_list || []),
-      notes || ''
-    );
+      notes || '',
+    ]);
 
-    const created = db.prepare('SELECT * FROM asset_audits WHERE id = ?').get(res.lastInsertRowid);
     return NextResponse.json({ success: true, data: created }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

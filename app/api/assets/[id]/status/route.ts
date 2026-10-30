@@ -10,7 +10,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const body = await request.json();
     const { action, assigned_to, note } = body;
 
-    const currentAsset = db.prepare('SELECT * FROM assets WHERE id = ?').get(id) as any;
+    const currentAsset = await db.queryOne('SELECT * FROM assets WHERE id = ?', [id]);
     if (!currentAsset) {
       return NextResponse.json({ success: false, error: 'Asset not found' }, { status: 404 });
     }
@@ -67,39 +67,39 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
 
     // Update asset
-    db.prepare(`
+    await db.execute(`
       UPDATE assets SET
         asset_status = ?,
         assigned_to = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(newStatus, newAssignedTo, id);
+    `, [newStatus, newAssignedTo, id]);
 
     // Record Event
-    db.prepare(`
+    await db.execute(`
       INSERT INTO asset_events (asset_id, event_type, notes)
       VALUES (?, ?, ?)
-    `).run(id, eventName, note || `Status updated via quick action: ${action}`);
+    `, [id, eventName, note || `Status updated via quick action: ${action}`]);
 
     // Record History
-    db.prepare(`
+    await db.execute(`
       INSERT INTO asset_history (asset_id, action, note, changed_from, changed_to)
       VALUES (?, ?, ?, ?, ?)
-    `).run(
+    `, [
       id,
       action.toUpperCase(),
       note || `Status changed from ${ASSET_STATUSES[currentAsset.asset_status]?.name || currentAsset.asset_status} to ${ASSET_STATUSES[newStatus]?.name || newStatus}`,
       String(currentAsset.asset_status),
       String(newStatus)
-    );
+    ]);
 
-    const updated = db.prepare(`
+    const updated = await db.queryOne(`
       SELECT a.*, c.name as category_name, l.name as location_name
       FROM assets a
       LEFT JOIN categories c ON a.category_id = c.id
       LEFT JOIN locations l ON a.location_id = l.id
       WHERE a.id = ?
-    `).get(id);
+    `, [id]);
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error: any) {

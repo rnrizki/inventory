@@ -5,13 +5,13 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const categories = db.prepare(`
-      SELECT c.*, COUNT(a.id) as asset_count 
+    const categories = await db.query(`
+      SELECT c.*, COUNT(a.id)::int as asset_count 
       FROM categories c 
       LEFT JOIN assets a ON c.id = a.category_id 
-      GROUP BY c.id 
+      GROUP BY c.id, c.name, c.description, c.created_at
       ORDER BY c.name ASC
-    `).all();
+    `);
     return NextResponse.json({ success: true, data: categories });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -25,8 +25,12 @@ export async function POST(request: Request) {
     if (!name) {
       return NextResponse.json({ success: false, error: 'Category name is required' }, { status: 400 });
     }
-    const result = db.prepare('INSERT INTO categories (name, description) VALUES (?, ?)').run(name, description || '');
-    const cat = db.prepare('SELECT * FROM categories WHERE id = ?').get(result.lastInsertRowid);
+    const cat = await db.queryOne(`
+      INSERT INTO categories (name, description)
+      VALUES (?, ?)
+      RETURNING *;
+    `, [name, description || '']);
+
     return NextResponse.json({ success: true, data: cat }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
