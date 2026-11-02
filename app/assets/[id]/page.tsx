@@ -286,10 +286,10 @@ export default function AssetDetailPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50/60 pb-16">
+    <div className="-mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 -mt-6 pb-16">
       {/* Top Banner Navigation */}
       <div className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-5">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-3">
               <button
@@ -365,7 +365,7 @@ export default function AssetDetailPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pt-6">
         {/* Quick Lifecycle Action Buttons Toolbar */}
         {currentUser?.canEdit && (
           <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs mb-6">

@@ -62,16 +62,16 @@ export default function LocationsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-black text-slate-900 tracking-tight">Locations & Branch Offices</h1>
         <p className="text-xs text-slate-500 mt-1">Master data lokasi penempatan aset dan departemen</p>
       </div>
 
-      <div className={`grid grid-cols-1 ${currentUser?.canEdit ? 'md:grid-cols-3' : ''} gap-6`}>
+      <div className={`grid grid-cols-1 ${currentUser?.canEdit ? 'lg:grid-cols-3' : ''} gap-6`}>
         {/* Form Add */}
         {currentUser?.canEdit && (
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs h-fit">
             <h2 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
               <Plus className="w-4 h-4 text-blue-600" /> Add Location
             </h2>
@@ -110,7 +110,7 @@ export default function LocationsPage() {
         )}
 
         {/* List */}
-        <div className={`${currentUser?.canEdit ? 'md:col-span-2' : ''} bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden`}>
+        <div className={`${currentUser?.canEdit ? 'lg:col-span-2' : ''} bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden`}>
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider">All Locations</h2>
             <span className="text-xs text-slate-400 font-semibold">{locations.length} total</span>

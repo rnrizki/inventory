@@ -60,7 +60,7 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/95 backdrop-blur shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
+      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
           <a href="/assets" className="flex items-center gap-2.5 font-bold text-slate-900 text-lg tracking-tight hover:opacity-90 transition">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
@@ -103,7 +103,7 @@ export default function Navbar() {
           {user && (
             <div className="hidden md:flex items-center gap-2 pl-2 border-l border-slate-200">
               <div className="text-right">
-                <div className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[150px]">
+                <div className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[150px] lg:max-w-xs">
                   {user.email}
                 </div>
                 <div className="flex items-center justify-end gap-1">
@@ -146,7 +146,7 @@ export default function Navbar() {
       {/* Mobile Dropdown Menu Drawer */}
       {isMobileMenuOpen && (
         <div className="lg:hidden border-t border-slate-200 bg-white/98 backdrop-blur shadow-xl animate-in fade-in slide-in-from-top-2 duration-150">
-          <div className="max-w-7xl mx-auto px-4 py-3 space-y-1">
+          <div className="w-full px-4 sm:px-6 lg:px-8 py-3 space-y-1">
             {user && (
               <div className="p-3 mb-2 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between">
                 <div>

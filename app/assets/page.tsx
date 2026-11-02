@@ -185,7 +185,7 @@ export default function AssetsPage() {
           </div>
           <div>
             <div className="text-xs font-semibold text-slate-500 uppercase">Total Value</div>
-            <div className="text-lg font-black text-slate-900 truncate max-w-[170px]" title={formatRupiah(stats?.totalValue)}>
+            <div className="text-lg 2xl:text-xl font-black text-slate-900 truncate" title={formatRupiah(stats?.totalValue)}>
               {formatRupiah(stats?.totalValue)}
             </div>
           </div>
@@ -249,15 +249,15 @@ export default function AssetsPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/75 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                <th className="py-3 px-4">#</th>
-                <th className="py-3 px-4">Asset Name</th>
-                <th className="py-3 px-4">Serial Number</th>
-                <th className="py-3 px-4">Specification / Model</th>
-                <th className="py-3 px-4">Category</th>
-                <th className="py-3 px-4">Location</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Assigned to</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-3 px-4 w-12">#</th>
+                <th className="py-3 px-4 min-w-[200px]">Asset Name</th>
+                <th className="py-3 px-4 min-w-[140px] whitespace-nowrap">Serial Number</th>
+                <th className="py-3 px-4 min-w-[200px]">Specification / Model</th>
+                <th className="py-3 px-4 min-w-[120px] whitespace-nowrap">Category</th>
+                <th className="py-3 px-4 min-w-[110px] whitespace-nowrap">Location</th>
+                <th className="py-3 px-4 min-w-[110px] whitespace-nowrap">Status</th>
+                <th className="py-3 px-4 min-w-[130px] whitespace-nowrap">Assigned to</th>
+                <th className="py-3 px-4 text-right whitespace-nowrap min-w-[190px]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
@@ -294,22 +294,22 @@ export default function AssetsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-xs text-slate-600">{asset.serial_number || '-'}</td>
-                    <td className="py-3.5 px-4 text-xs text-slate-600 max-w-xs truncate" title={asset.model_number}>
+                    <td className="py-3.5 px-4 font-mono text-xs text-slate-600 whitespace-nowrap">{asset.serial_number || '-'}</td>
+                    <td className="py-3.5 px-4 text-xs text-slate-600 max-w-sm 2xl:max-w-md truncate" title={asset.model_number}>
                       {asset.model_number || '-'}
                     </td>
-                    <td className="py-3.5 px-4 text-xs font-medium text-slate-700">
+                    <td className="py-3.5 px-4 text-xs font-medium text-slate-700 whitespace-nowrap">
                       {asset.category_name || '-'}
                     </td>
-                    <td className="py-3.5 px-4 text-xs text-slate-600">
+                    <td className="py-3.5 px-4 text-xs text-slate-600 whitespace-nowrap">
                       {asset.location_name || '-'}
                     </td>
-                    <td className="py-3.5 px-4">{getStatusBadge(asset.asset_status)}</td>
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4 whitespace-nowrap">{getStatusBadge(asset.asset_status)}</td>
+                    <td className="py-3.5 px-4 whitespace-nowrap">
                       {asset.assigned_to && asset.assigned_to.trim() !== '' ? (
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200">
                           <User className="w-3.5 h-3.5 text-slate-500" />
-                          <span className="truncate max-w-[140px]" title={asset.assigned_to}>
+                          <span className="truncate max-w-[160px] 2xl:max-w-xs" title={asset.assigned_to}>
                             {asset.assigned_to}
                           </span>
                         </div>
@@ -319,7 +319,7 @@ export default function AssetsPage() {
                         </span>
                       )}
                     </td>
-                    <td className="py-3.5 px-4 text-right">
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         <a
                           href={`/assets/${asset.id}`}
