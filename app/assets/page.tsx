@@ -18,6 +18,8 @@ import {
   TrendingUp,
   Layers,
   User,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import TsplPrintModal from '@/components/TsplPrintModal';
 import AssetModal from '@/components/AssetModal';
@@ -46,6 +48,63 @@ export default function AssetsPage() {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
+
+  // Pagination (15 items per page)
+  const PAGE_SIZE = 15;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset to page 1 when filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedCategory, selectedStatus]);
+
+  const totalPages = Math.max(1, Math.ceil(assets.length / PAGE_SIZE));
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const paginatedAssets = assets.slice(startIndex, startIndex + PAGE_SIZE);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const getPaginationItems = (): (number | string)[] => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+
+    const items: (number | string)[] = [];
+
+    if (currentPage <= 4) {
+      const endPage = Math.min(currentPage + 3, totalPages - 1);
+      for (let i = 1; i <= endPage; i++) {
+        items.push(i);
+      }
+      if (endPage < totalPages - 1) {
+        items.push('...');
+      }
+      items.push(totalPages);
+    } else if (currentPage >= totalPages - 3) {
+      items.push(1);
+      const startPage = Math.max(2, currentPage - 3);
+      if (startPage > 2) {
+        items.push('...');
+      }
+      for (let i = startPage; i <= totalPages; i++) {
+        items.push(i);
+      }
+    } else {
+      items.push(1);
+      items.push('...');
+      for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+        items.push(i);
+      }
+      items.push('...');
+      items.push(totalPages);
+    }
+
+    return items;
+  };
 
   // Modals
   const [selectedAssetForPrint, setSelectedAssetForPrint] = useState<any>(null);
@@ -270,9 +329,9 @@ export default function AssetsPage() {
                   <td colSpan={9} className="py-12 text-center text-slate-400">No assets found matching filters.</td>
                 </tr>
               ) : (
-                assets.map((asset, idx) => (
+                paginatedAssets.map((asset, idx) => (
                   <tr key={asset.id} className="hover:bg-slate-50/60 transition">
-                    <td className="py-3.5 px-4 font-mono text-xs text-slate-400">{idx + 1}</td>
+                    <td className="py-3.5 px-4 font-mono text-xs text-slate-400">{startIndex + idx + 1}</td>
                     <td className="py-3.5 px-4 font-bold text-slate-900">
                       <div className="flex items-center gap-3">
                         {asset.asset_image ? (
@@ -365,6 +424,77 @@ export default function AssetsPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Table Footer with Summary Info and Pagination matching majalahpdf.my.id */}
+        <div className="p-4 sm:p-5 border-t border-slate-200/80 bg-slate-50/40 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-xs text-slate-500 font-medium">
+            {assets.length === 0 ? (
+              <span>0 assets</span>
+            ) : (
+              <span>
+                Showing <span className="font-bold text-slate-800">{startIndex + 1}</span> to{' '}
+                <span className="font-bold text-slate-800">{Math.min(startIndex + PAGE_SIZE, assets.length)}</span> of{' '}
+                <span className="font-bold text-slate-800">{assets.length}</span> assets
+              </span>
+            )}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-center">
+              {/* Previous Button */}
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="inline-flex items-center gap-1 px-4 py-2 rounded-full border border-slate-200 bg-white text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed select-none"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Previous</span>
+              </button>
+
+              {/* Page Number Pills */}
+              {getPaginationItems().map((item, idx) => {
+                if (item === '...') {
+                  return (
+                    <span key={`ellipsis-${idx}`} className="px-1 text-xs sm:text-sm font-bold text-slate-400 select-none">
+                      ...
+                    </span>
+                  );
+                }
+
+                const pageNum = Number(item);
+                const isActive = pageNum === currentPage;
+                const formattedNum = pageNum < 10 ? `0${pageNum}` : `${pageNum}`;
+
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`min-w-[38px] h-9 px-2.5 rounded-full text-xs sm:text-sm font-bold transition flex items-center justify-center select-none ${
+                      isActive
+                        ? 'bg-[#0f172a] text-white shadow-xs border border-[#0f172a]'
+                        : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-2xs'
+                    }`}
+                  >
+                    {formattedNum}
+                  </button>
+                );
+              })}
+
+              {/* Next Button */}
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="inline-flex items-center gap-1 px-4 py-2 rounded-full border border-slate-200 bg-white text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed select-none"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
