@@ -91,18 +91,19 @@ export function buildTsplCommand(label: LabelData, options: PrintOptions = {}) {
   lines.push(`QRCODE ${marginLeft},${marginTop},M,${cellWidth},A,0,"${qrData}"`);
 
   // Position Specification directly adjacent to QR code (eliminates awkward empty gap)
-  const specX = cellWidth === 5 ? 208 : 175;
+  const specX = cellWidth === 5 ? 204 : 175;
   lines.push(`TEXT ${specX},${marginTop + 2},"2",0,1,1,"Specification :"`);
 
   // Multi-line specs (with comfortable gap / enter spacing below "Specification :")
   const specGap = 10;
   const specContentStartY = marginTop + 2 + 24 + specGap;
-  const maxSpecChars = Math.max(8, Math.floor((dotsW - specX - marginRight) / 12));
+  const specMarginRight = dotsW >= 450 ? 32 : 20;
+  const maxSpecChars = Math.max(8, Math.floor((dotsW - specX - specMarginRight) / 15));
   const modelLines = wrapTextLines(clean(label.model), maxSpecChars);
   let specLineY = specContentStartY;
-  for (let i = 0; i < Math.min(modelLines.length, 6); i++) {
+  for (let i = 0; i < Math.min(modelLines.length, 7); i++) {
     lines.push(`TEXT ${specX},${specLineY},"2",0,1,1,"${modelLines[i]}"`);
-    specLineY += 20;
+    specLineY += 19;
   }
 
   // Top section bottom boundary (approx 175 dots for cellWidth 5)
@@ -117,7 +118,7 @@ export function buildTsplCommand(label: LabelData, options: PrintOptions = {}) {
   const supplierY = addrLine1Y - 22;            // Font 2 height 20
   const propertyY = supplierY - 16;             // Font 1 height 12
 
-  // 3. MIDDLE SECTION (Asset Name, Tahun Pembelian, Serial Number + Small Barcode)
+  // 3. MIDDLE SECTION (Name, Pur Year, SN + Small Barcode)
   const serialStr = clean(label.serial);
   const hasBarcode = Boolean(serialStr && serialStr !== '-');
   const midStartY = topSectionBottom + 10;
@@ -134,17 +135,17 @@ export function buildTsplCommand(label: LabelData, options: PrintOptions = {}) {
     const barcodeHeight = 22; // Small 1D barcode ~2.75mm
     const narrow = serialStr.length > 18 ? 1 : 2;
 
-    lines.push(`TEXT ${marginLeft},${nameY},"2",0,1,1,"Asset Name : ${assetName.substring(0, maxCharsFull)}"`);
-    lines.push(`TEXT ${marginLeft},${dateY},"2",0,1,1,"Tahun Pembelian: ${dateStr.substring(0, maxCharsFull)}"`);
-    lines.push(`TEXT ${marginLeft},${serialY},"2",0,1,1,"Serial Number: ${serialStr.substring(0, maxCharsFull)}"`);
+    lines.push(`TEXT ${marginLeft},${nameY},"2",0,1,1,"Name : ${assetName.substring(0, maxCharsFull - 7)}"`);
+    lines.push(`TEXT ${marginLeft},${dateY},"2",0,1,1,"Pur Year: ${dateStr.substring(0, maxCharsFull - 10)}"`);
+    lines.push(`TEXT ${marginLeft},${serialY},"2",0,1,1,"SN: ${serialStr.substring(0, maxCharsFull - 4)}"`);
     lines.push(`BARCODE ${marginLeft},${barcodeY},"128",${barcodeHeight},0,0,${narrow},2,"${serialStr}"`);
   } else {
     const midAvailable = propertyY - midStartY - 8;
     const midStep = Math.max(22, Math.min(28, Math.floor(midAvailable / 3)));
 
-    lines.push(`TEXT ${marginLeft},${midStartY},"2",0,1,1,"Asset Name : ${assetName.substring(0, maxCharsFull)}"`);
-    lines.push(`TEXT ${marginLeft},${midStartY + midStep},"2",0,1,1,"Tahun Pembelian: ${dateStr.substring(0, maxCharsFull)}"`);
-    lines.push(`TEXT ${marginLeft},${midStartY + midStep * 2},"2",0,1,1,"Serial Number: ${serialStr.substring(0, maxCharsFull)}"`);
+    lines.push(`TEXT ${marginLeft},${midStartY},"2",0,1,1,"Name : ${assetName.substring(0, maxCharsFull - 7)}"`);
+    lines.push(`TEXT ${marginLeft},${midStartY + midStep},"2",0,1,1,"Pur Year: ${dateStr.substring(0, maxCharsFull - 10)}"`);
+    lines.push(`TEXT ${marginLeft},${midStartY + midStep * 2},"2",0,1,1,"SN: ${serialStr.substring(0, maxCharsFull - 4)}"`);
   }
 
   // Render Bottom Section (aligned to marginLeft)

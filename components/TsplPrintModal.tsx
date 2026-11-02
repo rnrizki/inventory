@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import JsBarcode from 'jsbarcode';
 import { X, Printer, Bolt, CheckCircle2, AlertCircle, RefreshCw, Smartphone } from 'lucide-react';
-import { buildTsplCommand, DEFAULT_ADDRESS, LabelData } from '@/lib/tspl';
+import { buildTsplCommand, DEFAULT_ADDRESS, LabelData, wrapTextLines } from '@/lib/tspl';
 import { WebUsbPrinter } from '@/lib/webusb';
 
 const usbPrinter = new WebUsbPrinter();
@@ -304,9 +304,9 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
             </div>
           </div>
           <div class="mid-section">
-            <div class="mid-item"><b>Asset Name :</b> ${name}</div>
-            <div class="mid-item"><b>Tahun Pembelian:</b> ${date}</div>
-            <div class="mid-item"><b>Serial Number:</b> ${serial}</div>
+            <div class="mid-item"><b>Name :</b> ${name}</div>
+            <div class="mid-item"><b>Pur Year:</b> ${date}</div>
+            <div class="mid-item"><b>SN:</b> ${serial}</div>
             ${barcodeDataUrl ? `<div class="barcode-wrap"><img src="${barcodeDataUrl}" class="barcode-img" /></div>` : ''}
           </div>
           <div class="bot-section">
@@ -457,7 +457,7 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
                       )}
                     </div>
                     {/* Right half: Specification directly adjacent to QR */}
-                    <div style={{ width: '56%', flex: 1, minWidth: 0, paddingLeft: '2px' }}>
+                    <div style={{ width: '56%', flex: 1, minWidth: 0, paddingLeft: '2px', paddingRight: '4px' }}>
                       <div style={{ fontSize: '13px', fontWeight: 700, color: '#000', lineHeight: 1.2 }}>
                         Specification :
                       </div>
@@ -474,21 +474,21 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
                           overflow: 'hidden',
                         }}
                       >
-                        {model || '-'}
+                        {wrapTextLines(model || '', 16).join('\n') || '-'}
                       </div>
                     </div>
                   </div>
 
-                  {/* Middle lines: Asset Name, Purchase Date, Serial Number + Small Barcode */}
+                  {/* Middle lines: Name, Pur Year, SN + Small Barcode */}
                   <div style={{ margin: '6px 0', fontSize: '11px', lineHeight: 1.45, color: '#111' }}>
                     <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <b>Asset Name :</b> {name || '-'}
+                      <b>Name :</b> {name || '-'}
                     </div>
                     <div style={{ marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <b>Tahun Pembelian:</b> {date || '-'}
+                      <b>Pur Year:</b> {date || '-'}
                     </div>
                     <div style={{ marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <b>Serial Number:</b> {serial || '-'}
+                      <b>SN:</b> {serial || '-'}
                     </div>
                     {barcodeDataUrl && (
                       <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center' }}>
@@ -556,7 +556,7 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
               </span>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 mb-1 block">Asset Name</label>
+                <label className="text-xs font-semibold text-slate-700 mb-1 block">Name</label>
                 <input
                   type="text"
                   value={name}
@@ -580,7 +580,7 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
                 </div>
                 <div className="space-y-2">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 mb-1 block">Tahun Pembelian</label>
+                    <label className="text-xs font-semibold text-slate-700 mb-1 block">Pur Year</label>
                     <input
                       type="text"
                       value={date}
@@ -589,7 +589,7 @@ export default function TsplPrintModal({ isOpen, onClose, asset }: Props) {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 mb-1 block">Serial Number</label>
+                    <label className="text-xs font-semibold text-slate-700 mb-1 block">SN</label>
                     <input
                       type="text"
                       value={serial}
