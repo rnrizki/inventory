@@ -239,7 +239,7 @@ export default function AssetModal({
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-slate-800 truncate">
-                      {image.startsWith('https://s3api2.skyconnection.id')
+                      {image.startsWith('https://s3web2.skyconnection.id') || image.startsWith('https://s3api2.skyconnection.id')
                         ? 'S3 Optimized Image'
                         : image.startsWith('data:')
                         ? 'Image uploaded (Optimized)'
@@ -301,7 +301,7 @@ export default function AssetModal({
                       placeholder="https://example.com/images/macbook.jpg"
                       className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden bg-white"
                     />
-                    {image && !image.startsWith('https://s3api2.skyconnection.id') && (
+                    {image && !image.startsWith('https://s3web2.skyconnection.id') && (
                       <button
                         type="button"
                         onClick={async () => {

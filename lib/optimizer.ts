@@ -96,9 +96,17 @@ export async function processAndUploadImageToS3(
         buffer = Buffer.from(base64Data, 'base64');
       }
     } else if (source.startsWith('http://') || source.startsWith('https://')) {
-      // If already a valid public S3 URL on our bucket, return it directly
-      if (source.includes('s3api2.skyconnection.id/inventory')) {
+      // If already a valid public S3 web URL on our bucket, return it directly
+      if (source.includes('s3web2.skyconnection.id/inventory')) {
         return { url: source, key: '', engine: 'Existing-S3' };
+      }
+      // If legacy s3api2 URL, upgrade to public web URL on s3web2
+      if (source.includes('s3api2.skyconnection.id/inventory')) {
+        return {
+          url: source.replace('s3api2.skyconnection.id', 's3web2.skyconnection.id'),
+          key: '',
+          engine: 'Existing-S3',
+        };
       }
       // Fetch remote URL and optimize
       const resp = await fetch(source);

@@ -50,6 +50,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       }
       return {
         ...h,
+        image_url: h.image_url ? h.image_url.replace('s3api2.skyconnection.id', 's3web2.skyconnection.id') : null,
         assigned_to: assigned && assigned !== '-' ? assigned : (h.action === 'ALLOCATE' ? (asset.assigned_to || '-') : '-'),
         location: h.location && h.location !== '-' ? h.location : (asset.location_name || '-'),
       };
@@ -59,6 +60,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       success: true,
       data: {
         ...asset,
+        asset_image: asset.asset_image ? asset.asset_image.replace('s3api2.skyconnection.id', 's3web2.skyconnection.id') : '',
         events,
         history,
         files,

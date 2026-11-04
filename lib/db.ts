@@ -231,6 +231,19 @@ export async function ensureSchema(): Promise<void> {
           WHERE a.id = h.asset_id
         )
         WHERE (h.location IS NULL OR h.location = '' OR h.location = '-');
+
+        -- Migrate any existing S3 image URLs from API host (s3api2) to public web host (s3web2)
+        UPDATE asset_history
+        SET image_url = REPLACE(image_url, 's3api2.skyconnection.id', 's3web2.skyconnection.id')
+        WHERE image_url LIKE '%s3api2.skyconnection.id%';
+
+        UPDATE assets
+        SET asset_image = REPLACE(asset_image, 's3api2.skyconnection.id', 's3web2.skyconnection.id')
+        WHERE asset_image LIKE '%s3api2.skyconnection.id%';
+
+        UPDATE asset_events
+        SET notes = REPLACE(notes, 's3api2.skyconnection.id', 's3web2.skyconnection.id')
+        WHERE notes LIKE '%s3api2.skyconnection.id%';
       `);
 
       // Indexes for performance
