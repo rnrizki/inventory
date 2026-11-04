@@ -752,14 +752,22 @@ export default function AssetDetailPage() {
                           {h.location || asset.location_name || '-'}
                         </td>
                         <td className="px-4 py-3 text-slate-700 font-medium whitespace-nowrap">
-                          {h.assigned_to && h.assigned_to !== '-' ? (
-                            <span className="inline-flex items-center gap-1 text-slate-800 font-semibold bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">
-                              <User className="w-3 h-3 text-slate-400" />
-                              {h.assigned_to}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 text-xs">-</span>
-                          )}
+                          {(() => {
+                            const val =
+                              h.assigned_to && h.assigned_to !== '-'
+                                ? h.assigned_to
+                                : (h.action === 'ALLOCATE' || h.action === 'Allocated')
+                                ? asset.assigned_to
+                                : null;
+                            return val && val !== '-' ? (
+                              <span className="inline-flex items-center gap-1 text-slate-800 font-semibold bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">
+                                <User className="w-3 h-3 text-slate-400" />
+                                {val}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-xs">-</span>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
                           {h.changed_by || 'Admin'}

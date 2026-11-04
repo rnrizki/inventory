@@ -19,7 +19,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ success: false, error: 'Asset not found' }, { status: 404 });
     }
 
-    const [events, history, files, reminders, notes, maintenance, audits] = await Promise.all([
+    const [events, rawHistory, files, reminders, notes, maintenance, audits] = await Promise.all([
       db.query('SELECT * FROM asset_events WHERE asset_id = ? ORDER BY id DESC', [id]),
       db.query('SELECT * FROM asset_history WHERE asset_id = ? ORDER BY id DESC', [id]),
       db.query('SELECT * FROM asset_files WHERE asset_id = ? ORDER BY id DESC', [id]),
@@ -31,6 +31,31 @@ export async function GET(request: Request, { params }: { params: { id: string }
         [`%"${id}"%`]
       ),
     ]);
+
+    const history = rawHistory.map((h: any) => {
+      let assigned = h.assigned_to;
+      if (!assigned || assigned === '-') {
+        if (h.action === 'ALLOCATE' || h.action === 'Allocated') {
+          const allocateEvent = events.find(
+            (e: any) =>
+              (e.event_type && e.event_type.startsWith('Allocated to ')) ||
+              e.assigned_to ||
+              e.target_person
+          );
+          assigned =
+            allocateEvent?.assigned_to ||
+            allocateEvent?.target_person ||
+            (allocateEvent?.event_type?.replace('Allocated to ', '') || '') ||
+            asset.assigned_to ||
+            '-';
+        }
+      }
+      return {
+        ...h,
+        assigned_to: assigned && assigned !== '-' ? assigned : (h.action === 'ALLOCATE' ? (asset.assigned_to || '-') : '-'),
+        location: h.location && h.location !== '-' ? h.location : (asset.location_name || '-'),
+      };
+    });
 
     return NextResponse.json({
       success: true,

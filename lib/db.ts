@@ -198,6 +198,40 @@ export async function ensureSchema(): Promise<void> {
         ALTER TABLE asset_history ADD COLUMN IF NOT EXISTS image_url TEXT;
         ALTER TABLE asset_history ADD COLUMN IF NOT EXISTS assigned_to TEXT;
         ALTER TABLE asset_history ADD COLUMN IF NOT EXISTS location TEXT;
+
+        -- Auto-backfill existing asset_history rows with assigned_to and location
+        UPDATE asset_history h
+        SET assigned_to = (
+          SELECT COALESCE(
+            NULLIF(e.assigned_to, ''),
+            NULLIF(e.target_person, ''),
+            NULLIF(REPLACE(e.event_type, 'Allocated to ', ''), ''),
+            NULLIF((SELECT a.assigned_to FROM assets a WHERE a.id = h.asset_id), ''),
+            '-'
+          )
+          FROM asset_events e
+          WHERE e.asset_id = h.asset_id
+            AND (e.event_type LIKE 'Allocated to%' OR e.assigned_to IS NOT NULL)
+          ORDER BY e.id DESC
+          LIMIT 1
+        )
+        WHERE (h.assigned_to IS NULL OR h.assigned_to = '' OR h.assigned_to = '-')
+          AND (UPPER(h.action) = 'ALLOCATE' OR UPPER(h.action) = 'ALLOCATED');
+
+        UPDATE asset_history h
+        SET assigned_to = (SELECT assigned_to FROM assets a WHERE a.id = h.asset_id)
+        WHERE (h.assigned_to IS NULL OR h.assigned_to = '' OR h.assigned_to = '-')
+          AND (UPPER(h.action) = 'ALLOCATE' OR UPPER(h.action) = 'ALLOCATED')
+          AND EXISTS (SELECT 1 FROM assets a WHERE a.id = h.asset_id AND a.assigned_to IS NOT NULL AND a.assigned_to != '');
+
+        UPDATE asset_history h
+        SET location = (
+          SELECT COALESCE(l.name, '-')
+          FROM assets a
+          LEFT JOIN locations l ON a.location_id = l.id
+          WHERE a.id = h.asset_id
+        )
+        WHERE (h.location IS NULL OR h.location = '' OR h.location = '-');
       `);
 
       // Indexes for performance
