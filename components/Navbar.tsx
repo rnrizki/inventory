@@ -15,6 +15,7 @@ import {
   LogOut,
   Shield,
   Eye,
+  ArrowLeftRight,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -51,6 +52,7 @@ export default function Navbar() {
 
   const primaryLinks = [
     { href: '/assets', label: 'Assets', icon: Box },
+    { href: '/rent', label: 'Rent', icon: ArrowLeftRight },
     { href: '/scanner', label: 'QR Scanner', icon: ScanLine },
     { href: '/audits', label: 'Audits', icon: ClipboardCheck },
     { href: '/reports', label: 'Reports', icon: BarChart3 },

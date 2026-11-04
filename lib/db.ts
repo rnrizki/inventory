@@ -264,6 +264,25 @@ export async function ensureSchema(): Promise<void> {
         CREATE INDEX IF NOT EXISTS idx_asset_history_aid ON asset_history(asset_id);
       `);
 
+      // 11. Bulk Rent & Equipment Dispatch Batches
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS asset_rent_batches (
+          id SERIAL PRIMARY KEY,
+          batch_code TEXT NOT NULL UNIQUE,
+          action_type TEXT NOT NULL,
+          assigned_to TEXT NOT NULL,
+          assigned_date TEXT NOT NULL,
+          expected_return_date TEXT,
+          notes TEXT,
+          image_url TEXT,
+          signature_url TEXT,
+          actor_name TEXT NOT NULL,
+          asset_ids TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_rent_batches_code ON asset_rent_batches(batch_code);
+      `);
+
       // Default categories & locations setup
       await client.query(`
         INSERT INTO categories (name, description)
