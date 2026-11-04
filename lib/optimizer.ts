@@ -76,6 +76,46 @@ export async function optimizeImageWithRust(inputBuffer: Buffer): Promise<{
 }
 
 /**
+ * Fetches an image from URL or buffer on the server side (avoiding browser CORS),
+ * rotates it by specified degrees (e.g. 90, 180, 270), optimizes to max 400px wide, and uploads to S3.
+ */
+export async function rotateAndUploadImageToS3(
+  sourceUrl: string,
+  degrees: number,
+  folder: 'assets' | 'history' = 'history',
+  filenamePrefix = 'photo-rot'
+): Promise<{ url: string; key: string }> {
+  // Ensure we fetch from public web host or handle legacy URL
+  const fetchUrl = sourceUrl.replace(/s3api2\.skyconnection\.id/g, 's3web2.skyconnection.id');
+  const resp = await fetch(fetchUrl);
+  if (!resp.ok) {
+    throw new Error(`Failed to fetch image from ${fetchUrl}: ${resp.status} ${resp.statusText}`);
+  }
+  const arrayBuf = await resp.arrayBuffer();
+  const inputBuffer = Buffer.from(arrayBuf);
+
+  const normalizedDegrees = ((degrees % 360) + 360) % 360;
+
+  let pipeline = sharp(inputBuffer);
+  if (normalizedDegrees !== 0) {
+    pipeline = pipeline.rotate(normalizedDegrees);
+  }
+
+  const meta = await pipeline.metadata();
+  if (meta.width && meta.width > 400) {
+    pipeline = pipeline.resize({ width: 400, fit: 'inside', withoutEnlargement: true });
+  }
+
+  const rotatedBuffer = await pipeline.webp({ quality: 88 }).toBuffer();
+  const s3Result = await uploadBufferToS3(rotatedBuffer, folder, filenamePrefix, 'image/webp');
+
+  return {
+    url: s3Result.url,
+    key: s3Result.key,
+  };
+}
+
+/**
  * Converts a base64 Data URL or raw Buffer to an optimized WebP buffer (max 400px wide)
  * and uploads it directly to the S3 bucket: https://s3api2.skyconnection.id/inventory/...
  */

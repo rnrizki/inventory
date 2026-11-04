@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { requirePrivilegedUser } from '@/lib/auth';
-import { processAndUploadImageToS3 } from '@/lib/optimizer';
+import { rotateAndUploadImageToS3, processAndUploadImageToS3 } from '@/lib/optimizer';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,11 +12,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
   try {
     const assetId = Number(params.id);
     const body = await request.json();
-    const { historyId, image } = body;
+    const { historyId, degrees, image } = body;
 
-    if (!historyId || !image) {
+    if (!historyId) {
       return NextResponse.json(
-        { success: false, error: 'historyId and image are required' },
+        { success: false, error: 'historyId is required' },
         { status: 400 }
       );
     }
@@ -34,13 +34,37 @@ export async function POST(request: Request, { params }: { params: { id: string 
       );
     }
 
-    // Optimize and upload rotated image to S3 (max 400px wide WebP)
-    const uploadRes = await processAndUploadImageToS3(
-      image.trim(),
-      'history',
-      `allocate-${assetId}-rot`
-    );
-    const newImageUrl = uploadRes.url;
+    let newImageUrl = '';
+
+    if (degrees !== undefined && Number(degrees) !== 0) {
+      const currentUrl = historyItem.image_url;
+      if (!currentUrl) {
+        return NextResponse.json(
+          { success: false, error: 'History record does not have an image' },
+          { status: 400 }
+        );
+      }
+      // Server-side rotation directly from existing S3 URL (bypasses browser CORS completely)
+      const rotRes = await rotateAndUploadImageToS3(
+        currentUrl,
+        Number(degrees),
+        'history',
+        `allocate-${assetId}-rot`
+      );
+      newImageUrl = rotRes.url;
+    } else if (image && typeof image === 'string') {
+      const uploadRes = await processAndUploadImageToS3(
+        image.trim(),
+        'history',
+        `allocate-${assetId}-rot`
+      );
+      newImageUrl = uploadRes.url;
+    } else {
+      return NextResponse.json(
+        { success: false, error: 'Please provide degrees or image' },
+        { status: 400 }
+      );
+    }
 
     // Update history record
     await db.execute('UPDATE asset_history SET image_url = ? WHERE id = ?', [

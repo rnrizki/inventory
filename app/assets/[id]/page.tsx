@@ -262,18 +262,17 @@ export default function AssetDetailPage() {
   };
 
   const handleSaveRotatedProof = async () => {
-    if (!previewImageUrl || !previewHistoryId || savingRotation) return;
+    if (!previewImageUrl || !previewHistoryId || savingRotation || previewRotation === 0) return;
     try {
       setSavingRotation(true);
-      const publicUrl = previewImageUrl.replace(/s3api2\.skyconnection\.id/g, 's3web2.skyconnection.id');
-      const rotatedDataUrl = await rotateImageDataUrl(publicUrl, previewRotation);
 
+      // Perform server-side rotation directly to avoid any browser canvas CORS cache conflicts
       const res = await fetch(`/api/assets/${assetId}/history-image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           historyId: previewHistoryId,
-          image: rotatedDataUrl,
+          degrees: previewRotation,
         }),
       });
 
