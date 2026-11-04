@@ -62,6 +62,8 @@ export default function RentPage() {
 
   // Scanner States
   const [isScanning, setIsScanning] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isCameraLoading, setIsCameraLoading] = useState(false);
   const [cameras, setCameras] = useState<Array<{ id: string; label: string }>>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -250,80 +252,151 @@ export default function RentPage() {
 
   // Start / Stop Camera Scanner (HTML5-QRCode)
   const startCamera = async (cameraId?: string) => {
+    setIsCameraLoading(true);
     try {
       const { Html5Qrcode } = await import('html5-qrcode');
 
-      if (!scannerRef.current) {
-        scannerRef.current = new Html5Qrcode('rent-qr-reader');
+      // Ensure container element is in DOM
+      const container = document.getElementById('rent-qr-reader');
+      if (!container) {
+        console.warn('rent-qr-reader container not found in DOM yet');
+        setIsCameraLoading(false);
+        return;
       }
 
+      // Stop and clear any previous scanner instance
+      if (scannerRef.current) {
+        try {
+          if (scannerRef.current.isScanning) {
+            await scannerRef.current.stop();
+          }
+          await scannerRef.current.clear();
+        } catch (e) {}
+        scannerRef.current = null;
+      }
+
+      const html5QrCode = new Html5Qrcode('rent-qr-reader');
+      scannerRef.current = html5QrCode;
+
+      // Check available cameras
+      let availableCameras: Array<{ id: string; label: string }> = [];
       try {
         const devices = await Html5Qrcode.getCameras();
         if (devices && devices.length > 0) {
-          setCameras(devices.map((d) => ({ id: d.id, label: d.label || `Camera ${d.id.slice(0, 4)}` })));
-          if (!selectedCameraId) {
-            const backCam = devices.find(
-              (d) =>
-                d.label.toLowerCase().includes('back') ||
-                d.label.toLowerCase().includes('rear') ||
-                d.label.toLowerCase().includes('environment')
-            );
-            setSelectedCameraId(backCam ? backCam.id : devices[0].id);
-          }
+          availableCameras = devices.map((d) => ({
+            id: d.id,
+            label: d.label || `Camera ${d.id.slice(0, 4)}`,
+          }));
+          setCameras(availableCameras);
         }
-      } catch (e) {}
+      } catch (e) {
+        // Querying devices can fail if permission is not yet granted
+      }
 
-      const cameraConfig = cameraId
-        ? { deviceId: { exact: cameraId } }
-        : { facingMode: 'environment' };
+      // Determine camera configuration
+      let targetCameraConfig: any = null;
+      const chosenId = cameraId || selectedCameraId;
+      if (chosenId) {
+        targetCameraConfig = { deviceId: { exact: chosenId } };
+      } else if (availableCameras.length > 0) {
+        const backCam = availableCameras.find(
+          (d) =>
+            d.label.toLowerCase().includes('back') ||
+            d.label.toLowerCase().includes('rear') ||
+            d.label.toLowerCase().includes('environment')
+        );
+        const chosen = backCam || availableCameras[0];
+        setSelectedCameraId(chosen.id);
+        targetCameraConfig = { deviceId: { exact: chosen.id } };
+      } else {
+        targetCameraConfig = { facingMode: 'environment' };
+      }
 
       const qrConfig = {
         fps: 15,
         qrbox: (w: number, h: number) => {
           const edge = Math.min(w, h) * 0.75;
-          return { width: Math.max(200, Math.floor(edge)), height: Math.max(200, Math.floor(edge)) };
+          return {
+            width: Math.max(200, Math.floor(edge)),
+            height: Math.max(200, Math.floor(edge)),
+          };
         },
         aspectRatio: 1.0,
       };
 
-      await scannerRef.current.start(
-        cameraConfig,
-        qrConfig,
-        async (decodedText: string) => {
-          const now = Date.now();
-          const lastTime = lastScannedTimeRef.current[decodedText] || 0;
-          // 2.5 second debounce per barcode so continuous scanner doesn't spam
-          if (now - lastTime < 2500) return;
-          lastScannedTimeRef.current[decodedText] = now;
+      const onScanSuccess = async (decodedText: string) => {
+        const now = Date.now();
+        const lastTime = lastScannedTimeRef.current[decodedText] || 0;
+        // 2.5 second debounce per barcode so continuous scanner doesn't spam
+        if (now - lastTime < 2500) return;
+        lastScannedTimeRef.current[decodedText] = now;
 
-          const asset = await lookupAssetByCode(decodedText);
-          if (asset) {
-            addAssetToStaging(asset);
-          } else {
-            showToast(`Aset tidak terdaftar: ${decodedText}`, 'warn');
-            playBeep(350, 0.2);
-          }
-        },
-        () => {}
-      );
+        const asset = await lookupAssetByCode(decodedText);
+        if (asset) {
+          addAssetToStaging(asset);
+        } else {
+          showToast(`Aset tidak terdaftar: ${decodedText}`, 'warn');
+          playBeep(350, 0.2);
+        }
+      };
+
+      try {
+        await html5QrCode.start(targetCameraConfig, qrConfig, onScanSuccess, () => {});
+      } catch (startErr: any) {
+        console.warn('Initial camera start failed, trying fallback to front/user camera...', startErr);
+        try {
+          await html5QrCode.start({ facingMode: 'user' }, qrConfig, onScanSuccess, () => {});
+        } catch (fallbackErr: any) {
+          // Final fallback to generic video stream
+          await html5QrCode.start(true as any, qrConfig, onScanSuccess, () => {});
+        }
+      }
 
       setIsScanning(true);
+      setIsCameraLoading(false);
     } catch (err: any) {
       console.error('Camera scan error:', err);
       setIsScanning(false);
-      showToast('Gagal mengakses kamera. Periksa izin kamera browser.', 'error');
+      setIsCameraOpen(false);
+      setIsCameraLoading(false);
+
+      let msg = 'Gagal mengakses kamera. ';
+      if (err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied')) {
+        msg += 'Izin kamera diblokir browser. Mohon izinkan akses kamera pada ikon gembok bilah URL browser Anda.';
+      } else if (err?.name === 'NotFoundError' || err?.message?.includes('No camera')) {
+        msg += 'Tidak ada perangkat kamera yang terdeteksi di perangkat ini.';
+      } else if (err?.name === 'NotReadableError' || err?.message?.includes('Could not start video source')) {
+        msg += 'Kamera sedang digunakan oleh aplikasi atau tab browser lain.';
+      } else {
+        msg += err?.message || 'Periksa izin kamera browser.';
+      }
+      showToast(msg, 'error');
     }
   };
 
   const stopCamera = async () => {
-    if (scannerRef.current && isScanning) {
+    if (scannerRef.current) {
       try {
-        await scannerRef.current.stop();
+        if (scannerRef.current.isScanning) {
+          await scannerRef.current.stop();
+        }
         await scannerRef.current.clear();
-      } catch (e) {}
-      setIsScanning(false);
+      } catch (e) {
+        console.warn('Error stopping scanner:', e);
+      }
+      scannerRef.current = null;
     }
+    setIsScanning(false);
+    setIsCameraLoading(false);
   };
+
+  useEffect(() => {
+    if (isCameraOpen) {
+      startCamera(selectedCameraId);
+    } else {
+      stopCamera();
+    }
+  }, [isCameraOpen]);
 
   useEffect(() => {
     return () => {
@@ -621,14 +694,25 @@ export default function RentPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => (isScanning ? stopCamera() : startCamera(selectedCameraId))}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs ${
-                      isScanning
+                    onClick={() => {
+                      if (isCameraOpen) {
+                        setIsCameraOpen(false);
+                      } else {
+                        setIsCameraOpen(true);
+                      }
+                    }}
+                    disabled={isCameraLoading}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer ${
+                      isCameraOpen
                         ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-70'
                     }`}
                   >
-                    {isScanning ? (
+                    {isCameraLoading ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Mengakses Kamera...
+                      </>
+                    ) : isCameraOpen ? (
                       <>
                         <CameraOff className="w-3.5 h-3.5" /> Stop Kamera
                       </>
@@ -642,30 +726,43 @@ export default function RentPage() {
               </div>
 
               {/* Viewfinder Canvas Container */}
-              {isScanning && (
-                <div className="mb-4 rounded-xl overflow-hidden border border-slate-300 bg-slate-950 relative">
-                  <div id="rent-qr-reader" className="w-full max-h-[320px] aspect-video"></div>
-                  <div className="absolute top-2 left-2 z-10 bg-black/60 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-xs">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                    Continuous Scan Aktif
-                  </div>
-                  {cameras.length > 1 && (
-                    <div className="absolute bottom-2 right-2 z-10">
-                      <select
-                        value={selectedCameraId}
-                        onChange={(e) => {
-                          setSelectedCameraId(e.target.value);
-                          stopCamera().then(() => startCamera(e.target.value));
-                        }}
-                        className="text-xs bg-black/75 text-white border border-white/20 rounded-lg px-2.5 py-1"
-                      >
-                        {cameras.map((c) => (
-                          <option key={c.id} value={c.id} className="text-black">
-                            {c.label}
-                          </option>
-                        ))}
-                      </select>
+              {isCameraOpen && (
+                <div className="mb-4 rounded-xl overflow-hidden border border-slate-300 bg-slate-950 relative min-h-[220px] flex items-center justify-center">
+                  <div id="rent-qr-reader" className="w-full max-h-[340px] aspect-video"></div>
+
+                  {isCameraLoading && (
+                    <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-xs flex flex-col items-center justify-center text-white gap-2.5 z-20">
+                      <RefreshCw className="w-6 h-6 animate-spin text-blue-400" />
+                      <p className="text-xs font-semibold">Menginisialisasi Kamera Pemindai...</p>
+                      <span className="text-[11px] text-slate-400">Pastikan izin kamera diizinkan di browser</span>
                     </div>
+                  )}
+
+                  {isScanning && !isCameraLoading && (
+                    <>
+                      <div className="absolute top-2 left-2 z-10 bg-black/60 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-xs">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        Continuous Scan Aktif
+                      </div>
+                      {cameras.length > 1 && (
+                        <div className="absolute bottom-2 right-2 z-10">
+                          <select
+                            value={selectedCameraId}
+                            onChange={(e) => {
+                              setSelectedCameraId(e.target.value);
+                              stopCamera().then(() => startCamera(e.target.value));
+                            }}
+                            className="text-xs bg-black/75 text-white border border-white/20 rounded-lg px-2.5 py-1 backdrop-blur-xs"
+                          >
+                            {cameras.map((c) => (
+                              <option key={c.id} value={c.id} className="text-black">
+                                {c.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
