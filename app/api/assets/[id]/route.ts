@@ -39,11 +39,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
           const allocateEvent = events.find(
             (e: any) =>
               (e.event_type && e.event_type.startsWith('Allocated to ')) ||
-              e.assigned_to ||
               e.target_person
           );
           assigned =
-            allocateEvent?.assigned_to ||
             allocateEvent?.target_person ||
             (allocateEvent?.event_type?.replace('Allocated to ', '') || '') ||
             asset.assigned_to ||
