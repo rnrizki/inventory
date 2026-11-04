@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { ASSET_STATUSES } from '@/lib/status';
 import { requirePrivilegedUser, getSession } from '@/lib/auth';
+import { processAndUploadImageToS3 } from '@/lib/optimizer';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,11 +29,33 @@ export async function POST(request: Request, { params }: { params: { id: string 
       maintenance_status,
       due_date,
       date_completed,
+      image,
+      image_url,
     } = body;
 
-    const currentAsset = await db.queryOne('SELECT * FROM assets WHERE id = ?', [id]);
+    const currentAsset = await db.queryOne(
+      `
+      SELECT a.*, l.name as location_name
+      FROM assets a
+      LEFT JOIN locations l ON a.location_id = l.id
+      WHERE a.id = ?
+    `,
+      [id]
+    );
     if (!currentAsset) {
       return NextResponse.json({ success: false, error: 'Asset not found' }, { status: 404 });
+    }
+
+    // Process image attachment via Rust Axum optimizer (max 400px wide, keeps ratio) and save to S3
+    let uploadedImageUrl = '';
+    const rawImage = image || image_url;
+    if (rawImage && typeof rawImage === 'string' && rawImage.trim() !== '') {
+      try {
+        const uploadRes = await processAndUploadImageToS3(rawImage.trim(), 'history', `allocate-${id}`);
+        uploadedImageUrl = uploadRes.url;
+      } catch (err: any) {
+        console.error('Error optimizing and uploading allocate image to S3:', err);
+      }
     }
 
     let newStatus = currentAsset.asset_status;
@@ -161,11 +184,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
       );
     }
 
-    // Record History Audit Log
+    // Record History Audit Log (with Image, Assigned To, and Location)
     await db.execute(
       `
-      INSERT INTO asset_history (asset_id, action, note, changed_from, changed_to, changed_by)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO asset_history (
+        asset_id, action, note, changed_from, changed_to, changed_by, image_url, assigned_to, location
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
       [
         id,
@@ -174,6 +198,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
         String(currentAsset.asset_status),
         String(newStatus),
         changedBy,
+        uploadedImageUrl || '',
+        newAssignedTo || '-',
+        currentAsset.location_name || '-',
       ]
     );
 

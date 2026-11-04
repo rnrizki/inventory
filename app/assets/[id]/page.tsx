@@ -33,6 +33,7 @@ import {
   Image as ImageIcon,
   Link as LinkIcon,
   ExternalLink,
+  Eye,
   X,
 } from 'lucide-react';
 import TsplPrintModal from '@/components/TsplPrintModal';
@@ -62,6 +63,7 @@ export default function AssetDetailPage() {
   const [showUrlPhotoModal, setShowUrlPhotoModal] = useState(false);
   const [urlPhotoInput, setUrlPhotoInput] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<{ email: string; role: string; canEdit: boolean } | null>(null);
 
   useEffect(() => {
@@ -106,15 +108,15 @@ export default function AssetDetailPage() {
     if (!file) return;
     try {
       setUploadingPhoto(true);
-      const dataUrl = await fileToOptimizedDataUrl(file);
+      const formData = new FormData();
+      formData.append('file', file);
       const res = await fetch(`/api/assets/${assetId}/photo`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ asset_image: dataUrl }),
+        body: formData,
       });
       const json = await res.json();
       if (json.success) {
-        setAsset((prev: any) => ({ ...prev, asset_image: dataUrl }));
+        setAsset((prev: any) => ({ ...prev, asset_image: json.url || prev.asset_image }));
         fetchAsset();
       } else {
         alert(json.error || 'Failed to upload photo');
@@ -138,7 +140,7 @@ export default function AssetDetailPage() {
       });
       const json = await res.json();
       if (json.success) {
-        setAsset((prev: any) => ({ ...prev, asset_image: urlPhotoInput.trim() }));
+        setAsset((prev: any) => ({ ...prev, asset_image: json.url || urlPhotoInput.trim() }));
         setShowUrlPhotoModal(false);
         setUrlPhotoInput('');
         fetchAsset();
@@ -669,29 +671,105 @@ export default function AssetDetailPage() {
         {/* Tab 3: History */}
         {activeTab === 'history' && (
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-800">Asset Change History & Audit Trail</h3>
+              <span className="text-xs text-slate-400 font-medium">
+                {asset.history?.length || 0} Total Records
+              </span>
             </div>
-            <table className="w-full text-left text-xs divide-y divide-slate-100">
-              <thead className="bg-slate-50 text-slate-500 font-semibold">
-                <tr>
-                  <th className="px-5 py-3">Date</th>
-                  <th className="px-5 py-3">Action</th>
-                  <th className="px-5 py-3">Note / Details</th>
-                  <th className="px-5 py-3">Changed By</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {asset.history?.map((h: any) => (
-                  <tr key={h.id} className="hover:bg-slate-50/50">
-                    <td className="px-5 py-3 text-slate-500 font-mono text-[11px]">{h.created_at}</td>
-                    <td className="px-5 py-3 font-semibold text-slate-800">{h.action || 'Updated'}</td>
-                    <td className="px-5 py-3 text-slate-600">{h.note || '-'}</td>
-                    <td className="px-5 py-3 text-slate-500">{h.changed_by || 'Admin'}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs divide-y divide-slate-100">
+                <thead className="bg-slate-50 text-slate-500 font-semibold">
+                  <tr>
+                    <th className="px-4 py-3 whitespace-nowrap">Date</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Action</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Image</th>
+                    <th className="px-4 py-3 min-w-[180px]">Note / Details</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Location</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Assigned to</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Changed By</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {asset.history?.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                        No history records found for this asset.
+                      </td>
+                    </tr>
+                  ) : (
+                    asset.history?.map((h: any) => (
+                      <tr key={h.id} className="hover:bg-slate-50/50 transition">
+                        <td className="px-4 py-3 text-slate-500 font-mono text-[11px] whitespace-nowrap">
+                          {h.created_at ? (
+                            h.created_at.includes('T') ? h.created_at.replace('T', ' ').substring(0, 19) : h.created_at
+                          ) : '-'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold ${
+                              h.action === 'ALLOCATE' || h.action === 'Allocated'
+                                ? 'bg-blue-100 text-blue-800'
+                                : h.action === 'REVOCATE' || h.action === 'Revocated'
+                                ? 'bg-amber-100 text-amber-800'
+                                : h.action === 'BROKEN'
+                                ? 'bg-rose-100 text-rose-800'
+                                : h.action === 'LOST'
+                                ? 'bg-purple-100 text-purple-800'
+                                : h.action === 'REPAIR'
+                                ? 'bg-indigo-100 text-indigo-800'
+                                : 'bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            {h.action || 'Updated'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {h.image_url ? (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImageUrl(h.image_url)}
+                              className="group relative w-12 h-12 rounded-lg border border-slate-200 overflow-hidden bg-slate-100 hover:ring-2 hover:ring-blue-500 shadow-2xs transition block"
+                              title="Click to view full image"
+                            >
+                              <img
+                                src={h.image_url}
+                                alt="History proof"
+                                className="w-full h-full object-cover group-hover:scale-105 transition"
+                              />
+                              <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+                                <Eye className="w-4 h-4 text-white drop-shadow" />
+                              </div>
+                            </button>
+                          ) : (
+                            <span className="text-slate-300 font-mono text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 max-w-xs break-words">
+                          {h.note || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700 font-medium whitespace-nowrap">
+                          {h.location || asset.location_name || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700 font-medium whitespace-nowrap">
+                          {h.assigned_to && h.assigned_to !== '-' ? (
+                            <span className="inline-flex items-center gap-1 text-slate-800 font-semibold bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">
+                              <User className="w-3 h-3 text-slate-400" />
+                              {h.assigned_to}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-xs">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                          {h.changed_by || 'Admin'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -981,6 +1059,60 @@ export default function AssetDetailPage() {
             fetchAsset();
           }}
         />
+      )}
+
+      {/* Captured Image Proof Lightbox Modal */}
+      {previewImageUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-fade-in"
+          onClick={() => setPreviewImageUrl(null)}
+        >
+          <div
+            className="relative max-w-2xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl border border-slate-700"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3.5 bg-slate-900 text-white">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-blue-400" />
+                <span className="text-sm font-semibold">Captured Image Proof</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewImageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Open Original
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewImageUrl(null)}
+                  className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 bg-slate-950 flex items-center justify-center min-h-[280px] max-h-[75vh]">
+              <img
+                src={previewImageUrl}
+                alt="Captured proof preview"
+                className="max-h-[70vh] max-w-full object-contain rounded-lg"
+              />
+            </div>
+            <div className="px-5 py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+              <span className="truncate max-w-md font-mono text-[11px] text-slate-300">{previewImageUrl}</span>
+              <button
+                type="button"
+                onClick={() => setPreviewImageUrl(null)}
+                className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

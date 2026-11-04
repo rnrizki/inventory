@@ -100,8 +100,8 @@ export async function POST(request: Request) {
 
     if (asset?.id) {
       await db.execute(
-        `INSERT INTO asset_history (asset_id, action, note) VALUES (?, 'Created', 'Asset registered')`,
-        [asset.id]
+        `INSERT INTO asset_history (asset_id, action, note, image_url, assigned_to, location) VALUES (?, 'Created', 'Asset registered', ?, ?, ?)`,
+        [asset.id, asset_image || '', assigned_to || '-', '']
       );
     }
 

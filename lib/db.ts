@@ -194,6 +194,10 @@ export async function ensureSchema(): Promise<void> {
         ALTER TABLE asset_maintenance ADD COLUMN IF NOT EXISTS maintenance_status TEXT;
         ALTER TABLE asset_maintenance ADD COLUMN IF NOT EXISTS date_completed TEXT;
         ALTER TABLE asset_maintenance ADD COLUMN IF NOT EXISTS signature TEXT;
+
+        ALTER TABLE asset_history ADD COLUMN IF NOT EXISTS image_url TEXT;
+        ALTER TABLE asset_history ADD COLUMN IF NOT EXISTS assigned_to TEXT;
+        ALTER TABLE asset_history ADD COLUMN IF NOT EXISTS location TEXT;
       `);
 
       // Indexes for performance

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { requirePrivilegedUser } from '@/lib/auth';
+import { processAndUploadImageToS3 } from '@/lib/optimizer';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,18 +12,18 @@ export async function POST(request: Request, { params }: { params: { id: string 
   try {
     const id = Number(params.id);
     const contentType = request.headers.get('content-type') || '';
-    let imageUrl = '';
+    let imageSource: Buffer | string = '';
 
     if (contentType.includes('application/json')) {
       const body = await request.json();
-      imageUrl = (body.asset_image || body.imageUrl || body.image || '').trim();
+      imageSource = (body.asset_image || body.imageUrl || body.image || '').trim();
     } else if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       const file = formData.get('file') as File | null;
       const urlField = formData.get('imageUrl') as string | null;
 
       if (urlField) {
-        imageUrl = urlField.trim();
+        imageSource = urlField.trim();
       } else if (file) {
         const allowedTypes = [
           'image/jpeg',
@@ -45,18 +46,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
         }
 
         const buffer = await file.arrayBuffer();
-        const base64 = Buffer.from(buffer).toString('base64');
-        const mime = file.type || 'image/jpeg';
-        imageUrl = `data:${mime};base64,${base64}`;
+        imageSource = Buffer.from(buffer);
       }
     }
 
-    if (!imageUrl) {
+    if (!imageSource || (typeof imageSource === 'string' && !imageSource.trim())) {
       return NextResponse.json(
         { success: false, error: 'Please provide an image file or direct image URL' },
         { status: 400 }
       );
     }
+
+    // Convert & optimize to max 400px wide (preserving ratio) using Rust Axum and save to S3
+    const { url: s3Url, engine } = await processAndUploadImageToS3(imageSource, 'assets', `asset-${id}`);
 
     const updated = await db.queryOne(
       `
@@ -65,7 +67,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       WHERE id = ?
       RETURNING *;
     `,
-      [imageUrl, id]
+      [s3Url, id]
     );
 
     if (!updated) {
@@ -73,18 +75,20 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
 
     await db.execute(
-      `INSERT INTO asset_events (asset_id, event_type, notes) VALUES (?, 'Photo Updated', 'Asset photo updated')`,
+      `INSERT INTO asset_events (asset_id, event_type, notes) VALUES (?, 'Photo Updated', 'Asset photo updated via S3 & Rust image engine')`,
       [id]
     );
     await db.execute(
-      `INSERT INTO asset_history (asset_id, action, note) VALUES (?, 'Updated', 'Asset photo changed')`,
-      [id]
+      `INSERT INTO asset_history (asset_id, action, note, image_url) VALUES (?, 'Updated', 'Asset photo changed', ?)`,
+      [id, s3Url]
     );
 
     return NextResponse.json({
       success: true,
-      message: 'Asset photo updated successfully',
+      message: 'Asset photo updated and saved to S3 successfully',
       data: updated,
+      url: s3Url,
+      engine,
     });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

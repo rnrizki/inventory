@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Calendar, DollarSign, RefreshCw } from 'lucide-react';
+import { X, Calendar, DollarSign, RefreshCw, Camera, Video, Trash2, Image as ImageIcon } from 'lucide-react';
 
 export type LifecycleAction =
   | 'maintenance'
@@ -52,6 +52,13 @@ export default function AssetStatusModal({
   const undoStackRef = useRef<ImageData[]>([]);
   const [hasDrawn, setHasDrawn] = useState(false);
 
+  // Camera & Handover Image attachment
+  const [capturedImage, setCapturedImage] = useState<string>('');
+  const [showWebcam, setShowWebcam] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
   // Reset form when modal opens or action changes
   useEffect(() => {
     if (isOpen) {
@@ -66,6 +73,12 @@ export default function AssetStatusModal({
       setMaintenanceDueDate('');
       setMaintenanceBy('');
       setMaintenanceStatus('');
+      setCapturedImage('');
+      setShowWebcam(false);
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
+      }
       undoStackRef.current = [];
       setHasDrawn(false);
 
@@ -174,6 +187,56 @@ export default function AssetStatusModal({
     return canvas.toDataURL('image/png');
   };
 
+  const startWebcam = async () => {
+    try {
+      setShowWebcam(true);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      mediaStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err: any) {
+      alert('Camera access denied or unavailable: ' + err.message);
+      setShowWebcam(false);
+    }
+  };
+
+  const stopWebcam = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
+    setShowWebcam(false);
+  };
+
+  const takeWebcamSnapshot = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      setCapturedImage(dataUrl);
+    }
+    stopWebcam();
+  };
+
+  const handleCameraFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setCapturedImage(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
@@ -203,6 +266,9 @@ export default function AssetStatusModal({
 
       if (action === 'allocate') {
         payload.assigned_to = targetPerson;
+        if (capturedImage) {
+          payload.image = capturedImage;
+        }
       }
 
       const res = await fetch(`/api/assets/${asset.id}/status`, {
@@ -750,6 +816,112 @@ export default function AssetStatusModal({
                     placeholder="Handover notes, accessories included..."
                     className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                   />
+                </div>
+
+                {/* Camera Capture Image under Note */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <label className="font-semibold text-slate-800 flex items-center gap-1.5">
+                      <Camera className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Handover Photo (Camera Capture)</span>
+                    </label>
+                    {capturedImage && (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        Image Attached (Max 400px WebP)
+                      </span>
+                    )}
+                  </div>
+
+                  {capturedImage ? (
+                    <div className="relative rounded-xl border border-slate-200 bg-slate-50 p-2.5 flex items-center gap-3">
+                      <img
+                        src={capturedImage}
+                        alt="Handover Preview"
+                        className="w-16 h-16 object-cover rounded-lg border border-slate-200 bg-white shrink-0 shadow-2xs"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate">Photo Captured</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">Optimized via Rust Axum engine to max 400px wide & saved to S3.</p>
+                        <div className="flex items-center gap-3 mt-1.5">
+                          <button
+                            type="button"
+                            onClick={() => cameraInputRef.current?.click()}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700"
+                          >
+                            <RefreshCw className="w-3 h-3" /> Retake
+                          </button>
+                          <span className="text-slate-300">•</span>
+                          <button
+                            type="button"
+                            onClick={() => setCapturedImage('')}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-700"
+                          >
+                            <Trash2 className="w-3 h-3" /> Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {/* Hidden camera input with capture="environment" for smartphones */}
+                      <input
+                        ref={cameraInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleCameraFileChange}
+                        className="hidden"
+                      />
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <button
+                          type="button"
+                          onClick={() => cameraInputRef.current?.click()}
+                          className="flex-1 inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border border-blue-200 hover:border-blue-400 bg-blue-50/70 hover:bg-blue-100/70 text-blue-700 font-bold transition shadow-2xs"
+                        >
+                          <Camera className="w-4 h-4 text-blue-600" />
+                          <span>Use Camera to Capture Image</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={startWebcam}
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold transition"
+                          title="Open live desktop webcam"
+                        >
+                          <Video className="w-4 h-4 text-slate-500" />
+                          <span className="hidden sm:inline">Live Webcam</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Live Webcam Modal Viewfinder */}
+                  {showWebcam && (
+                    <div className="relative rounded-2xl bg-slate-950 p-2.5 flex flex-col items-center mt-2 border border-slate-800">
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full max-h-52 object-contain rounded-xl bg-black"
+                      />
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={takeWebcamSnapshot}
+                          className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition"
+                        >
+                          📸 Snap Photo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={stopWebcam}
+                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             )}

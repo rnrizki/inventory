@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Save, Upload, Image as ImageIcon, Link as LinkIcon, Trash2 } from 'lucide-react';
+import { X, Save, Upload, Image as ImageIcon, Link as LinkIcon, Trash2, RefreshCw } from 'lucide-react';
 import { fileToOptimizedDataUrl } from '@/lib/image-upload';
 
 interface Props {
@@ -220,7 +220,14 @@ export default function AssetModal({
                 </div>
               </div>
 
-              {image ? (
+              {uploadingImage ? (
+                <div className="flex items-center justify-center gap-2 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
+                  <span className="text-xs font-semibold text-slate-600">
+                    Optimizing with Rust & Uploading to S3...
+                  </span>
+                </div>
+              ) : image ? (
                 <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200">
                   <img
                     src={image}
@@ -232,9 +239,13 @@ export default function AssetModal({
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-slate-800 truncate">
-                      {image.startsWith('data:') ? 'Image uploaded (Optimized)' : image}
+                      {image.startsWith('https://s3api2.skyconnection.id')
+                        ? 'S3 Optimized Image'
+                        : image.startsWith('data:')
+                        ? 'Image uploaded (Optimized)'
+                        : image}
                     </p>
-                    <p className="text-[11px] text-slate-400">Photo will be saved with this asset</p>
+                    <p className="text-[11px] text-emerald-600 font-medium">Saved to S3 inventory bucket</p>
                   </div>
                   <button
                     type="button"
@@ -255,10 +266,21 @@ export default function AssetModal({
                       if (!f) return;
                       try {
                         setUploadingImage(true);
-                        const dataUrl = await fileToOptimizedDataUrl(f);
-                        setImage(dataUrl);
+                        const formData = new FormData();
+                        formData.append('file', f);
+                        formData.append('folder', 'assets');
+                        const res = await fetch('/api/upload/image', {
+                          method: 'POST',
+                          body: formData,
+                        });
+                        const data = await res.json();
+                        if (data.success && data.url) {
+                          setImage(data.url);
+                        } else {
+                          alert(data.error || 'Failed to upload and optimize image');
+                        }
                       } catch (err: any) {
-                        alert(err.message || 'Failed to process image');
+                        alert(err.message || 'Failed to upload image to S3');
                       } finally {
                         setUploadingImage(false);
                       }
@@ -266,20 +288,50 @@ export default function AssetModal({
                     className="text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-slate-500 cursor-pointer w-full"
                   />
                   <p className="text-[11px] text-slate-400 mt-1">
-                    Supports PNG, JPG, JPEG, WEBP, GIF, SVG, BMP (Auto-optimized)
+                    Auto-optimized (max 400px wide, original ratio) & stored on S3
                   </p>
                 </div>
               ) : (
-                <div>
-                  <input
-                    type="url"
-                    value={image}
-                    onChange={(e) => setImage(e.target.value)}
-                    placeholder="https://example.com/images/macbook.jpg"
-                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden bg-white"
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Paste a direct image source URL
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={image}
+                      onChange={(e) => setImage(e.target.value)}
+                      placeholder="https://example.com/images/macbook.jpg"
+                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden bg-white"
+                    />
+                    {image && !image.startsWith('https://s3api2.skyconnection.id') && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            setUploadingImage(true);
+                            const res = await fetch('/api/upload/image', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ imageUrl: image, folder: 'assets' }),
+                            });
+                            const data = await res.json();
+                            if (data.success && data.url) {
+                              setImage(data.url);
+                            } else {
+                              alert(data.error || 'Failed to optimize image to S3');
+                            }
+                          } catch (err: any) {
+                            alert(err.message || 'Failed to process URL to S3');
+                          } finally {
+                            setUploadingImage(false);
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold whitespace-nowrap"
+                      >
+                        Upload to S3
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Paste a direct image source URL (will be optimized to S3)
                   </p>
                 </div>
               )}
