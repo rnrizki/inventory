@@ -38,6 +38,27 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Check for privileged access on /rent and /api/rent (only privileged users can view/use Rent)
+  if (pathname.startsWith('/rent') || pathname.startsWith('/api/rent')) {
+    try {
+      const [data] = sessionCookie.split('.');
+      const b64 = data.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = b64.length % 4 ? '='.repeat(4 - (b64.length % 4)) : '';
+      const session = JSON.parse(atob(b64 + pad));
+      if (!session.canEdit) {
+        if (pathname.startsWith('/api/')) {
+          return NextResponse.json({ error: 'Forbidden: Privileged access required' }, { status: 403 });
+        }
+        return NextResponse.redirect(new URL('/assets', request.url));
+      }
+    } catch {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ error: 'Unauthorized: Invalid session' }, { status: 401 });
+      }
+      return NextResponse.redirect(new URL('/assets', request.url));
+    }
+  }
+
   return NextResponse.next();
 }
 

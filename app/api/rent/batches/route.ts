@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { getSession } from '@/lib/auth';
+import { requirePrivilegedUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
+  const authError = requirePrivilegedUser();
+  if (authError) return authError;
+
   try {
-    const session = getSession();
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const { searchParams } = new URL(request.url);
     const limit = Math.min(Number(searchParams.get('limit')) || 20, 50);
