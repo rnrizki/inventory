@@ -35,12 +35,15 @@ import {
   ExternalLink,
   Eye,
   X,
+  RotateCw,
+  RotateCcw,
+  Check,
 } from 'lucide-react';
 import TsplPrintModal from '@/components/TsplPrintModal';
 import AssetModal from '@/components/AssetModal';
 import AssetStatusModal, { LifecycleAction } from '@/components/AssetStatusModal';
 import { ASSET_STATUSES, getStatusInfo } from '@/lib/status';
-import { fileToOptimizedDataUrl } from '@/lib/image-upload';
+import { fileToOptimizedDataUrl, rotateImageDataUrl } from '@/lib/image-upload';
 
 export default function AssetDetailPage() {
   const params = useParams();
@@ -65,6 +68,9 @@ export default function AssetDetailPage() {
   const [urlPhotoInput, setUrlPhotoInput] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewHistoryId, setPreviewHistoryId] = useState<number | null>(null);
+  const [previewRotation, setPreviewRotation] = useState<number>(0);
+  const [savingRotation, setSavingRotation] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<{ email: string; role: string; canEdit: boolean } | null>(null);
 
   useEffect(() => {
@@ -252,6 +258,38 @@ export default function AssetDetailPage() {
       }
     } catch (e: any) {
       alert(e.message);
+    }
+  };
+
+  const handleSaveRotatedProof = async () => {
+    if (!previewImageUrl || !previewHistoryId || savingRotation) return;
+    try {
+      setSavingRotation(true);
+      const publicUrl = previewImageUrl.replace(/s3api2\.skyconnection\.id/g, 's3web2.skyconnection.id');
+      const rotatedDataUrl = await rotateImageDataUrl(publicUrl, previewRotation);
+
+      const res = await fetch(`/api/assets/${assetId}/history-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          historyId: previewHistoryId,
+          image: rotatedDataUrl,
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        setPreviewImageUrl(json.url);
+        setPreviewRotation(0);
+        fetchAsset();
+        alert('Orientasi foto proof berhasil diperbarui & disimpan!');
+      } else {
+        alert(json.error || 'Gagal menyimpan orientasi foto proof');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error memproses rotasi gambar');
+    } finally {
+      setSavingRotation(false);
     }
   };
 
@@ -779,13 +817,15 @@ export default function AssetDetailPage() {
                           {h.image_url ? (
                             <button
                               type="button"
-                              onClick={() =>
+                              onClick={() => {
                                 setPreviewImageUrl(
-                                  h.image_url.replace('s3api2.skyconnection.id', 's3web2.skyconnection.id')
-                                )
-                              }
+                                  h.image_url.replace(/s3api2\.skyconnection\.id/g, 's3web2.skyconnection.id')
+                                );
+                                setPreviewHistoryId(h.id);
+                                setPreviewRotation(0);
+                              }}
                               className="group relative w-12 h-12 rounded-lg border border-slate-200 overflow-hidden bg-slate-100 hover:ring-2 hover:ring-blue-500 shadow-2xs transition block"
-                              title="Click to view full image"
+                              title="Click to view full image & edit orientation"
                             >
                               <img
                                 src={h.image_url.replace('s3api2.skyconnection.id', 's3web2.skyconnection.id')}
@@ -1124,57 +1164,134 @@ export default function AssetDetailPage() {
         />
       )}
 
-      {/* Captured Image Proof Lightbox Modal */}
+      {/* Captured Image Proof Lightbox Modal with Rotation & Edit Tool */}
       {previewImageUrl && (() => {
-        const publicProofUrl = previewImageUrl.replace('s3api2.skyconnection.id', 's3web2.skyconnection.id');
+        const publicProofUrl = previewImageUrl.replace(/s3api2\.skyconnection\.id/g, 's3web2.skyconnection.id');
         return (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-fade-in"
-            onClick={() => setPreviewImageUrl(null)}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/85 backdrop-blur-sm animate-fade-in"
+            onClick={() => {
+              setPreviewImageUrl(null);
+              setPreviewRotation(0);
+              setPreviewHistoryId(null);
+            }}
           >
             <div
-              className="relative max-w-2xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl border border-slate-700"
+              className="relative max-w-3xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl border border-slate-700 flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-5 py-3.5 bg-slate-900 text-white">
+              <div className="flex flex-wrap items-center justify-between px-5 py-3.5 bg-slate-900 text-white gap-2">
                 <div className="flex items-center gap-2">
                   <ImageIcon className="w-4 h-4 text-blue-400" />
                   <span className="text-sm font-semibold">Captured Image Proof</span>
+                  {previewRotation !== 0 && (
+                    <span className="text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                      Diputar {previewRotation}°
+                    </span>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex items-center gap-1.5">
+                  {/* Rotation Edit Buttons */}
+                  <button
+                    type="button"
+                    disabled={savingRotation}
+                    onClick={() => setPreviewRotation((r) => (r - 90 + 360) % 360)}
+                    className="px-2.5 py-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
+                    title="Putar Kiri (-90°)"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-blue-400" /> Putar Kiri
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingRotation}
+                    onClick={() => setPreviewRotation((r) => (r + 90) % 360)}
+                    className="px-2.5 py-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
+                    title="Putar Kanan (+90°)"
+                  >
+                    <RotateCw className="w-3.5 h-3.5 text-blue-400" /> Putar Kanan
+                  </button>
+
+                  {/* Save Rotation permanently to S3 & Database */}
+                  {previewRotation !== 0 && previewHistoryId && (
+                    <button
+                      type="button"
+                      disabled={savingRotation}
+                      onClick={handleSaveRotatedProof}
+                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shadow-sm animate-pulse disabled:opacity-50"
+                      title="Simpan orientasi ini ke server & S3"
+                    >
+                      {savingRotation ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Menyimpan...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-3.5 h-3.5" /> Simpan Orientasi
+                        </>
+                      )}
+                    </button>
+                  )}
+
                   <a
                     href={publicProofUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-2.5 py-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" /> Open Original
+                    <ExternalLink className="w-3.5 h-3.5" /> Buka Asli
                   </a>
                   <button
                     type="button"
-                    onClick={() => setPreviewImageUrl(null)}
+                    onClick={() => {
+                      setPreviewImageUrl(null);
+                      setPreviewRotation(0);
+                      setPreviewHistoryId(null);
+                    }}
                     className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
               </div>
-              <div className="p-4 bg-slate-950 flex items-center justify-center min-h-[280px] max-h-[75vh]">
+
+              <div className="p-4 bg-slate-950 flex items-center justify-center min-h-[320px] max-h-[75vh] overflow-hidden">
                 <img
                   src={publicProofUrl}
                   alt="Captured proof preview"
-                  className="max-h-[70vh] max-w-full object-contain rounded-lg"
+                  style={{
+                    transform: `rotate(${previewRotation}deg)`,
+                    transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                  className="max-h-[68vh] max-w-full object-contain rounded-lg shadow-md"
                 />
               </div>
-              <div className="px-5 py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+
+              <div className="px-5 py-3 bg-slate-900 border-t border-slate-800 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
                 <span className="truncate max-w-md font-mono text-[11px] text-slate-300">{publicProofUrl}</span>
-                <button
-                  type="button"
-                  onClick={() => setPreviewImageUrl(null)}
-                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold transition"
-                >
-                  Close
-                </button>
+                <div className="flex items-center gap-2">
+                  {previewRotation !== 0 && previewHistoryId && (
+                    <button
+                      type="button"
+                      disabled={savingRotation}
+                      onClick={handleSaveRotatedProof}
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold transition shadow-sm"
+                    >
+                      {savingRotation ? 'Menyimpan...' : 'Simpan Posisi Baru'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewImageUrl(null);
+                      setPreviewRotation(0);
+                      setPreviewHistoryId(null);
+                    }}
+                    className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold transition"
+                  >
+                    Tutup
+                  </button>
+                </div>
               </div>
             </div>
           </div>

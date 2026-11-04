@@ -5,7 +5,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use image::{imageops::FilterType, ImageFormat};
+use image::{imageops::FilterType, DynamicImage, ImageDecoder, ImageFormat, ImageReader};
 use serde::Serialize;
 use std::io::Cursor;
 use tower_http::cors::CorsLayer;
@@ -65,11 +65,35 @@ async fn health_handler() -> Json<HealthResponse> {
     })
 }
 
-// Resizes image to max 400px wide, preserving original aspect ratio
+// Resizes image to max 400px wide, preserving original aspect ratio and honoring EXIF orientation
 fn process_image(file_bytes: &[u8]) -> Result<(Vec<u8>, (u32, u32), (u32, u32)), String> {
-    let img = match image::load_from_memory(file_bytes) {
-        Ok(i) => i,
-        Err(e) => return Err(format!("Failed to decode image: {}", e)),
+    let cursor = Cursor::new(file_bytes);
+    let mut img = match ImageReader::new(cursor).with_guessed_format() {
+        Ok(reader) => match reader.into_decoder() {
+            Ok(mut decoder) => {
+                let orientation = decoder
+                    .orientation()
+                    .unwrap_or(image::metadata::Orientation::NoTransforms);
+                match DynamicImage::from_decoder(decoder) {
+                    Ok(mut decoded) => {
+                        decoded.apply_orientation(orientation);
+                        decoded
+                    }
+                    Err(_) => match image::load_from_memory(file_bytes) {
+                        Ok(i) => i,
+                        Err(e) => return Err(format!("Failed to decode image: {}", e)),
+                    },
+                }
+            }
+            Err(_) => match image::load_from_memory(file_bytes) {
+                Ok(i) => i,
+                Err(e) => return Err(format!("Failed to decode image: {}", e)),
+            },
+        },
+        Err(_) => match image::load_from_memory(file_bytes) {
+            Ok(i) => i,
+            Err(e) => return Err(format!("Failed to decode image: {}", e)),
+        },
     };
 
     let orig_w = img.width();

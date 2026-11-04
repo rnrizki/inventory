@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Calendar, DollarSign, RefreshCw, Camera, Video, Trash2, Image as ImageIcon } from 'lucide-react';
-import { fileToOptimizedDataUrl } from '@/lib/image-upload';
+import { X, Calendar, DollarSign, RefreshCw, Camera, Video, Trash2, Image as ImageIcon, RotateCw, RotateCcw } from 'lucide-react';
+import { fileToOptimizedDataUrl, rotateImageDataUrl } from '@/lib/image-upload';
 
 export type LifecycleAction =
   | 'maintenance'
@@ -55,6 +55,7 @@ export default function AssetStatusModal({
 
   // Camera & Handover Image attachment
   const [capturedImage, setCapturedImage] = useState<string>('');
+  const [rotatingImage, setRotatingImage] = useState(false);
   const [showWebcam, setShowWebcam] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -232,7 +233,7 @@ export default function AssetStatusModal({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      // Pre-optimize image to max 800px width so upload is rapid on mobile connections
+      // Pre-optimize image to max 800px width so upload is rapid on mobile connections and honors EXIF
       const optimizedUrl = await fileToOptimizedDataUrl(file, 800, 0.85);
       setCapturedImage(optimizedUrl);
     } catch (err: any) {
@@ -242,6 +243,19 @@ export default function AssetStatusModal({
         setCapturedImage(ev.target?.result as string);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRotateCapturedImage = async (degrees: number) => {
+    if (!capturedImage || rotatingImage) return;
+    try {
+      setRotatingImage(true);
+      const rotated = await rotateImageDataUrl(capturedImage, degrees);
+      setCapturedImage(rotated);
+    } catch (err: any) {
+      console.error('Failed to rotate captured image:', err);
+    } finally {
+      setRotatingImage(false);
     }
   };
 
@@ -841,30 +855,62 @@ export default function AssetStatusModal({
                   </div>
 
                   {capturedImage ? (
-                    <div className="relative rounded-xl border border-slate-200 bg-slate-50 p-2.5 flex items-center gap-3">
-                      <img
-                        src={capturedImage}
-                        alt="Handover Preview"
-                        className="w-16 h-16 object-cover rounded-lg border border-slate-200 bg-white shrink-0 shadow-2xs"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-800 truncate">Photo Captured</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">Optimized via Rust Axum engine to max 400px wide & saved to S3.</p>
-                        <div className="flex items-center gap-3 mt-1.5">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2.5">
+                      <div className="relative flex items-center justify-center bg-slate-950 rounded-lg p-2 overflow-hidden min-h-[160px] max-h-[260px]">
+                        <img
+                          src={capturedImage}
+                          alt="Handover Preview"
+                          className="max-h-[240px] max-w-full object-contain rounded shadow-sm"
+                        />
+                        {rotatingImage && (
+                          <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center text-white text-xs font-semibold gap-2">
+                            <RefreshCw className="w-4 h-4 animate-spin text-blue-400" />
+                            <span>Memutar gambar...</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200 text-xs">
+                        <div className="flex items-center gap-1.5">
                           <button
                             type="button"
+                            disabled={rotatingImage}
+                            onClick={() => handleRotateCapturedImage(-90)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold shadow-2xs transition disabled:opacity-50"
+                            title="Putar Kiri (-90°)"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Putar Kiri</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={rotatingImage}
+                            onClick={() => handleRotateCapturedImage(90)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold shadow-2xs transition disabled:opacity-50"
+                            title="Putar Kanan (+90°)"
+                          >
+                            <RotateCw className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Putar Kanan</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            disabled={rotatingImage}
                             onClick={() => cameraInputRef.current?.click()}
                             className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700"
                           >
-                            <RefreshCw className="w-3 h-3" /> Retake
+                            <RefreshCw className="w-3 h-3" /> Ambil Ulang
                           </button>
                           <span className="text-slate-300">•</span>
                           <button
                             type="button"
+                            disabled={rotatingImage}
                             onClick={() => setCapturedImage('')}
                             className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-700"
                           >
-                            <Trash2 className="w-3 h-3" /> Remove
+                            <Trash2 className="w-3 h-3" /> Hapus
                           </button>
                         </div>
                       </div>
