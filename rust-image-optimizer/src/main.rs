@@ -1,16 +1,15 @@
 use axum::{
-    body::Bytes,
     extract::Multipart,
     http::{header, HeaderMap, HeaderName, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
-use image::{imageops::FilterType, DynamicImage, ImageFormat};
+use image::{imageops::FilterType, ImageFormat};
 use serde::Serialize;
 use std::io::Cursor;
 use tower_http::cors::CorsLayer;
-use tracing::{error, info};
+use tracing::info;
 
 #[derive(Serialize)]
 struct HealthResponse {
@@ -97,7 +96,7 @@ fn process_image(file_bytes: &[u8]) -> Result<(Vec<u8>, (u32, u32), (u32, u32)),
     Ok((out_buf.into_inner(), (orig_w, orig_h), (new_w, new_h)))
 }
 
-async fn extract_bytes_from_multipart_or_raw(mut multipart: Multipart) -> Result<Vec<u8>, String> {
+async fn extract_bytes_from_multipart_or_raw(multipart: &mut Multipart) -> Result<Vec<u8>, String> {
     while let Ok(Some(field)) = multipart.next_field().await {
         if let Ok(data) = field.bytes().await {
             if !data.is_empty() {
@@ -109,13 +108,10 @@ async fn extract_bytes_from_multipart_or_raw(mut multipart: Multipart) -> Result
 }
 
 // POST /optimize -> returns binary image/webp
-async fn optimize_binary_handler(body: Result<Multipart, axum::extract::rejection::MultipartRejection>) -> Response {
-    let file_bytes = match body {
-        Ok(multipart) => match extract_bytes_from_multipart_or_raw(multipart).await {
-            Ok(b) => b,
-            Err(e) => return (StatusCode::BAD_REQUEST, e).into_response(),
-        },
-        Err(e) => return (StatusCode::BAD_REQUEST, format!("Invalid multipart body: {}", e)).into_response(),
+async fn optimize_binary_handler(mut multipart: Multipart) -> Response {
+    let file_bytes = match extract_bytes_from_multipart_or_raw(&mut multipart).await {
+        Ok(b) => b,
+        Err(e) => return (StatusCode::BAD_REQUEST, e).into_response(),
     };
 
     match process_image(&file_bytes) {
@@ -154,13 +150,10 @@ async fn optimize_binary_handler(body: Result<Multipart, axum::extract::rejectio
 }
 
 // POST /optimize-json -> returns JSON with base64
-async fn optimize_json_handler(body: Result<Multipart, axum::extract::rejection::MultipartRejection>) -> Response {
-    let file_bytes = match body {
-        Ok(multipart) => match extract_bytes_from_multipart_or_raw(multipart).await {
-            Ok(b) => b,
-            Err(e) => return (StatusCode::BAD_REQUEST, e).into_response(),
-        },
-        Err(e) => return (StatusCode::BAD_REQUEST, format!("Invalid multipart body: {}", e)).into_response(),
+async fn optimize_json_handler(mut multipart: Multipart) -> Response {
+    let file_bytes = match extract_bytes_from_multipart_or_raw(&mut multipart).await {
+        Ok(b) => b,
+        Err(e) => return (StatusCode::BAD_REQUEST, e).into_response(),
     };
 
     match process_image(&file_bytes) {
