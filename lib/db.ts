@@ -244,6 +244,15 @@ export async function ensureSchema(): Promise<void> {
         UPDATE asset_events
         SET notes = REPLACE(notes, 's3api2.skyconnection.id', 's3web2.skyconnection.id')
         WHERE notes LIKE '%s3api2.skyconnection.id%';
+
+        -- Clean bloated base64 data URLs from asset_events status_details to keep API payloads lean & fast
+        UPDATE asset_events
+        SET status_details = NULL
+        WHERE status_details LIKE '%data:image/%';
+
+        UPDATE asset_events
+        SET status_details = REPLACE(status_details, 's3api2.skyconnection.id', 's3web2.skyconnection.id')
+        WHERE status_details LIKE '%s3api2.skyconnection.id%';
       `);
 
       // Indexes for performance

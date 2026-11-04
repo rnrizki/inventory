@@ -20,7 +20,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
 
     const [events, rawHistory, files, reminders, notes, maintenance, audits] = await Promise.all([
-      db.query('SELECT * FROM asset_events WHERE asset_id = ? ORDER BY id DESC', [id]),
+      db.query(
+        `SELECT id, asset_id, event_type, notes, event_by, signature, event_date, target_person, cost, created_at
+         FROM asset_events
+         WHERE asset_id = ?
+         ORDER BY id DESC`,
+        [id]
+      ),
       db.query('SELECT * FROM asset_history WHERE asset_id = ? ORDER BY id DESC', [id]),
       db.query('SELECT * FROM asset_files WHERE asset_id = ? ORDER BY id DESC', [id]),
       db.query('SELECT * FROM asset_reminders WHERE asset_id = ? ORDER BY id DESC', [id]),
@@ -32,25 +38,30 @@ export async function GET(request: Request, { params }: { params: { id: string }
       ),
     ]);
 
-    const history = rawHistory.map((h: any) => {
+    const cleanEvents = (events || []).map((e: any) => ({
+      ...e,
+      notes: e.notes ? e.notes.replace(/s3api2\.skyconnection\.id/g, 's3web2.skyconnection.id') : '',
+    }));
+
+    const history = (rawHistory || []).map((h: any) => {
       let assigned = h.assigned_to;
       if (!assigned || assigned === '-') {
         if (h.action === 'ALLOCATE' || h.action === 'Allocated') {
-          const allocateEvent = events.find(
+          const allocateEvent = cleanEvents.find(
             (e: any) =>
-              (e.event_type && e.event_type.startsWith('Allocated to ')) ||
+              (e.event_type && String(e.event_type).startsWith('Allocated to ')) ||
               e.target_person
           );
           assigned =
             allocateEvent?.target_person ||
-            (allocateEvent?.event_type?.replace('Allocated to ', '') || '') ||
+            (allocateEvent?.event_type ? String(allocateEvent.event_type).replace('Allocated to ', '') : '') ||
             asset.assigned_to ||
             '-';
         }
       }
       return {
         ...h,
-        image_url: h.image_url ? h.image_url.replace('s3api2.skyconnection.id', 's3web2.skyconnection.id') : null,
+        image_url: h.image_url ? h.image_url.replace(/s3api2\.skyconnection\.id/g, 's3web2.skyconnection.id') : null,
         assigned_to: assigned && assigned !== '-' ? assigned : (h.action === 'ALLOCATE' ? (asset.assigned_to || '-') : '-'),
         location: h.location && h.location !== '-' ? h.location : (asset.location_name || '-'),
       };
@@ -60,8 +71,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
       success: true,
       data: {
         ...asset,
-        asset_image: asset.asset_image ? asset.asset_image.replace('s3api2.skyconnection.id', 's3web2.skyconnection.id') : '',
-        events,
+        asset_image: asset.asset_image ? asset.asset_image.replace(/s3api2\.skyconnection\.id/g, 's3web2.skyconnection.id') : '',
+        events: cleanEvents,
         history,
         files,
         reminders,

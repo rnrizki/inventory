@@ -141,7 +141,17 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
     const finalEventNotes = noteParts.join(' | ') || `Status updated via action: ${action}`;
 
-    // Record Event (with signature and details)
+    // Sanitize body for status_details: NEVER store huge raw base64 data URLs
+    const sanitizedDetails: Record<string, any> = { ...body };
+    if (uploadedImageUrl) {
+      sanitizedDetails.image = uploadedImageUrl;
+      sanitizedDetails.image_url = uploadedImageUrl;
+    } else {
+      delete sanitizedDetails.image;
+      delete sanitizedDetails.image_url;
+    }
+
+    // Record Event (with signature and sanitized details)
     await db.execute(
       `
       INSERT INTO asset_events (
@@ -157,7 +167,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         actionDate,
         recipient,
         costVal,
-        JSON.stringify(body),
+        JSON.stringify(sanitizedDetails),
       ]
     );
 

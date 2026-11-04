@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Calendar, DollarSign, RefreshCw, Camera, Video, Trash2, Image as ImageIcon } from 'lucide-react';
+import { fileToOptimizedDataUrl } from '@/lib/image-upload';
 
 export type LifecycleAction =
   | 'maintenance'
@@ -227,14 +228,21 @@ export default function AssetStatusModal({
     stopWebcam();
   };
 
-  const handleCameraFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCameraFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setCapturedImage(ev.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    try {
+      // Pre-optimize image to max 800px width so upload is rapid on mobile connections
+      const optimizedUrl = await fileToOptimizedDataUrl(file, 800, 0.85);
+      setCapturedImage(optimizedUrl);
+    } catch (err: any) {
+      console.error('Failed to pre-optimize image, falling back to raw:', err);
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setCapturedImage(ev.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

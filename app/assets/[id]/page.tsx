@@ -49,6 +49,7 @@ export default function AssetDetailPage() {
 
   const [asset, setAsset] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
     'general' | 'events' | 'history' | 'files' | 'reminders' | 'notes' | 'audits'
   >('general');
@@ -80,20 +81,44 @@ export default function AssetDetailPage() {
   const [reminderForm, setReminderForm] = useState({ description: '', reminder_date: '' });
 
   const fetchAsset = async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
       setLoading(true);
-      const res = await fetch(`/api/assets/${assetId}`);
+      setErrorMsg(null);
+      const res = await fetch(`/api/assets/${assetId}`, {
+        signal: controller.signal,
+      });
+
+      if (res.status === 401) {
+        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+        return;
+      }
+
       const json = await res.json();
-      if (json.success) {
+      if (json.success && json.data) {
         setAsset(json.data);
         // Generate QR code data URL
-        const qrUrl = `${window.location.origin}/assets/${json.data.id}`;
-        const dataUrl = await QRCode.toDataURL(qrUrl, { width: 300, margin: 1 });
-        setQrDataUrl(dataUrl);
+        try {
+          const qrUrl = `${window.location.origin}/assets/${json.data.id}`;
+          const dataUrl = await QRCode.toDataURL(qrUrl, { width: 300, margin: 1 });
+          setQrDataUrl(dataUrl);
+        } catch (qrErr) {
+          console.error('Failed to generate QR code:', qrErr);
+        }
+      } else {
+        setErrorMsg(json.error || 'Asset not found or failed to load');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      if (e.name === 'AbortError') {
+        setErrorMsg('Network request timed out. Please check your connection and tap Try Again.');
+      } else {
+        setErrorMsg(e.message || 'Unable to connect to server');
+      }
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
@@ -237,6 +262,32 @@ export default function AssetDetailPage() {
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-sm font-medium text-slate-500">Loading asset details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (errorMsg) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-rose-200 text-center max-w-md w-full">
+          <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
+          <h2 className="text-lg font-bold text-slate-800">Unable to Load Asset</h2>
+          <p className="text-sm text-slate-500 mt-1 mb-6">{errorMsg}</p>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              onClick={() => fetchAsset()}
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition"
+            >
+              <RefreshCw className="w-4 h-4" /> Try Again
+            </button>
+            <button
+              onClick={() => router.push('/assets')}
+              className="inline-flex items-center gap-2 border border-slate-200 text-slate-700 bg-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back to Assets
+            </button>
+          </div>
         </div>
       </div>
     );
