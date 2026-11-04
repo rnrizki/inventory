@@ -45,14 +45,13 @@ RUN mkdir .next && chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy Rust Image Optimizer binary and start script
-COPY --from=rust-builder --chown=nextjs:nodejs /app/target/release/image-optimizer /app/image-optimizer
-COPY --chown=nextjs:nodejs start.sh /app/start.sh
-RUN chmod +x /app/start.sh /app/image-optimizer 2>/dev/null || true
+# Copy Rust Image Optimizer binary and ensure executable permissions
+COPY --from=rust-builder /app/target/release/image-optimizer /app/image-optimizer
+RUN chmod 755 /app/image-optimizer && chown nextjs:nodejs /app/image-optimizer
 
 USER nextjs
 
 EXPOSE 3000
 EXPOSE 3001
 
-CMD ["/app/start.sh"]
+CMD ["node", "server.js"]
