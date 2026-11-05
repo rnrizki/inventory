@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { fileToOptimizedDataUrl, rotateImageDataUrl } from '@/lib/image-upload';
 import { ASSET_STATUSES, getStatusInfo } from '@/lib/status';
+import HandoverPhotoCapture from '@/components/HandoverPhotoCapture';
 
 interface StagedAsset {
   id: number;
@@ -1023,101 +1024,14 @@ export default function RentPage() {
                 </div>
               </div>
 
-              {/* Photo Proof with Camera Capture & Rotation Tools */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Camera className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Foto Bukti Serah Terima</span>
-                  </label>
-                  {capturedImage && (
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      Foto Terlampir
-                    </span>
-                  )}
-                </div>
-
-                {capturedImage ? (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2.5">
-                    <div className="relative flex items-center justify-center bg-slate-950 rounded-lg p-2 overflow-hidden min-h-[160px] max-h-[220px]">
-                      <img
-                        src={capturedImage}
-                        alt="Handover Preview"
-                        className="max-h-[200px] max-w-full object-contain rounded shadow-sm"
-                      />
-                      {rotatingImage && (
-                        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center text-white text-xs font-semibold gap-2">
-                          <RefreshCw className="w-4 h-4 animate-spin text-blue-400" />
-                          <span>Memutar gambar...</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          disabled={rotatingImage}
-                          onClick={() => handleRotateImage(-90)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold shadow-2xs transition disabled:opacity-50"
-                          title="Putar Kiri (-90°)"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5 text-blue-600" />
-                          <span>Putar Kiri</span>
-                        </button>
-                        <button
-                          type="button"
-                          disabled={rotatingImage}
-                          onClick={() => handleRotateImage(90)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold shadow-2xs transition disabled:opacity-50"
-                          title="Putar Kanan (+90°)"
-                        >
-                          <RotateCw className="w-3.5 h-3.5 text-blue-600" />
-                          <span>Putar Kanan</span>
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          disabled={rotatingImage}
-                          onClick={() => cameraInputRef.current?.click()}
-                          className="text-blue-600 hover:text-blue-700 font-bold text-xs"
-                        >
-                          Ambil Ulang
-                        </button>
-                        <span className="text-slate-300">•</span>
-                        <button
-                          type="button"
-                          disabled={rotatingImage}
-                          onClick={() => setCapturedImage('')}
-                          className="text-rose-600 hover:text-rose-700 font-bold text-xs"
-                        >
-                          Hapus
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <input
-                      ref={cameraInputRef}
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={handlePhotoUpload}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => cameraInputRef.current?.click()}
-                      className="w-full py-3 border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl text-slate-600 hover:text-blue-600 text-xs font-bold flex items-center justify-center gap-2 transition bg-slate-50 hover:bg-blue-50/50"
-                    >
-                      <Camera className="w-4 h-4" />
-                      <span>Buka Kamera / Upload Foto Bukti</span>
-                    </button>
-                  </div>
-                )}
+              {/* Photo Proof with Camera Capture, Device Switcher, & Upload Tools */}
+              <div className="pt-2 border-t border-slate-100">
+                <HandoverPhotoCapture
+                  value={capturedImage}
+                  onChange={setCapturedImage}
+                  label="Foto Bukti Serah Terima"
+                  sublabel="Ambil foto serah terima langsung dari kamera atau upload file lokal"
+                />
               </div>
 
               {/* Digital Signature Pad */}
