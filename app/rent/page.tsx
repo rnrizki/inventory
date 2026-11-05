@@ -106,9 +106,8 @@ export default function RentPage() {
   } | null>(null);
   const [showSuratJalanModal, setShowSuratJalanModal] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ email: string; name: string; role: string; canEdit: boolean } | null>(null);
-  const [isVerifyingAuth, setIsVerifyingAuth] = useState(true);
 
-  // Fetch Current User & Verify Privileges
+  // Fetch Current User & Verify Privileges in background
   useEffect(() => {
     fetch('/api/auth/me')
       .then((r) => r.json())
@@ -118,16 +117,9 @@ export default function RentPage() {
           if (!d.user.canEdit) {
             router.replace('/assets');
           }
-        } else {
-          router.replace('/login?redirect=/rent');
         }
       })
-      .catch(() => {
-        router.replace('/assets');
-      })
-      .finally(() => {
-        setIsVerifyingAuth(false);
-      });
+      .catch(() => {});
   }, [router]);
 
   // Web Audio Synthesizer Beep
@@ -607,20 +599,6 @@ export default function RentPage() {
       setSubmitting(false);
     }
   };
-
-  // If verifying authentication or non-privileged access
-  if (isVerifyingAuth || (currentUser && !currentUser.canEdit)) {
-    return (
-      <div className="min-h-[70vh] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 p-8 text-center shadow-xs space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
-            <RefreshCw className="w-6 h-6 animate-spin" />
-          </div>
-          <p className="text-xs font-semibold text-slate-600">Memeriksa hak akses Privileged...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="-mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 -mt-6 pb-20">
