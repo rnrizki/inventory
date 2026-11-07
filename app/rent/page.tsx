@@ -42,6 +42,7 @@ import {
   Clock,
   Tag,
   Eye,
+  Pencil,
 } from 'lucide-react';
 import { fileToOptimizedDataUrl, rotateImageDataUrl } from '@/lib/image-upload';
 import { ASSET_STATUSES, getStatusInfo } from '@/lib/status';
@@ -81,7 +82,7 @@ export default function RentPage() {
   // Navigation View: 'list' (first page / main history table) or 'dispatch' (bulk scanner & execution)
   const [viewMode, setViewMode] = useState<'list' | 'dispatch'>('list');
 
-  // Mode inside dispatch: 'allocate' (Peminjaman) or 'revocate' (Pengembalian)
+  // Mode inside dispatch: 'allocate' (Peminjaman / Relokasi) or 'revocate' (Pengembalian)
   const [mode, setMode] = useState<'allocate' | 'revocate'>('allocate');
 
   // Batches history list (First page)
@@ -90,6 +91,16 @@ export default function RentPage() {
   const [batchSearchTerm, setBatchSearchTerm] = useState('');
   const [batchFilterStatus, setBatchFilterStatus] = useState<'ALL' | 'ALLOCATE' | 'REVOCATE'>('ALL');
   const [expandedBatchId, setExpandedBatchId] = useState<number | null>(null);
+
+  // Edit Batch States
+  const [editingBatch, setEditingBatch] = useState<RentBatch | null>(null);
+  const [editAssignedTo, setEditAssignedTo] = useState('');
+  const [editReturnDate, setEditReturnDate] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // PDF Download State
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   // Staged Assets Queue for Dispatch
   const [stagedAssets, setStagedAssets] = useState<StagedAsset[]>([]);
@@ -543,11 +554,11 @@ export default function RentPage() {
     }
 
     if (mode === 'allocate' && !assignedTo.trim()) {
-      alert('Nama penerima / peminjam (Assigned To) wajib diisi untuk transaksi Allocate.');
+      alert('Nama penerima / peminjam (Assigned To) wajib diisi untuk transaksi Relokasi.');
       return;
     }
 
-    const actionText = mode === 'allocate' ? 'Peminjaman (Allocate)' : 'Pengembalian (Revocate)';
+    const actionText = mode === 'allocate' ? 'Relokasi Barang (Allocate)' : 'Pengembalian Relokasi (Revocate)';
     if (
       !confirm(
         `Konfirmasi eksekusi ${actionText} untuk ${stagedAssets.length} aset terpilih?`
@@ -617,7 +628,7 @@ export default function RentPage() {
     }
   };
 
-  // Open existing batch into Surat Jalan preview modal
+  // Open existing batch into Document preview modal (View)
   const openBatchSuratJalan = (b: RentBatch) => {
     setExecutedBatch({
       batch_code: b.batch_code,
@@ -635,10 +646,73 @@ export default function RentPage() {
     setShowSuratJalanModal(true);
   };
 
+  // Open Edit Modal for a Batch
+  const openEditBatch = (b: RentBatch) => {
+    setEditingBatch(b);
+    setEditAssignedTo(b.assigned_to || '');
+    setEditReturnDate(b.expected_return_date || '');
+    setEditNotes(b.notes || '');
+  };
+
+  // Save Edit Batch
+  const handleSaveEdit = async () => {
+    if (!editingBatch) return;
+    try {
+      setSavingEdit(true);
+      const res = await fetch('/api/rent/batches', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingBatch.id,
+          assigned_to: editAssignedTo.trim(),
+          expected_return_date: editReturnDate,
+          notes: editNotes.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('Data relokasi berhasil diperbarui!', 'success');
+        setEditingBatch(null);
+        fetchBatches();
+      } else {
+        alert(json.error || 'Gagal menyimpan perubahan');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Error updating batch');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // Delete Batch & Revert Assets if Allocate
+  const handleDeleteBatch = async (b: RentBatch) => {
+    const isAllocate = b.action_type === 'ALLOCATE';
+    const confirmMsg = isAllocate
+      ? `Apakah Anda yakin ingin menghapus data relokasi "${b.batch_code}"?\n\nStatus ${b.assets?.length || 0} barang akan otomatis dikembalikan menjadi Available.`
+      : `Apakah Anda yakin ingin menghapus riwayat batch "${b.batch_code}"?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`/api/rent/batches?id=${b.id}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`Batch ${b.batch_code} berhasil dihapus!`, 'success');
+        fetchBatches();
+      } else {
+        alert(json.error || 'Gagal menghapus batch');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Error deleting batch');
+    }
+  };
+
   // Generate share summary text
   const getShareText = (batch: any) => {
     const isAllocate = batch.action === 'allocate' || batch.action_type === 'ALLOCATE';
-    const actionLabel = isAllocate ? 'Peminjaman (ALLOCATE)' : 'Pengembalian (REVOCATE)';
+    const actionLabel = isAllocate ? 'Daftar Relokasi Barang' : 'Daftar Pengembalian Relokasi';
     const dateStr = batch.date || batch.assigned_date || '-';
     const recipient = batch.assigned_to || '-';
     const items = batch.assets || [];
@@ -648,10 +722,10 @@ export default function RentPage() {
       .join('\n');
 
     return (
-      `*SURAT JALAN SKYCONNECTION MANDIRI*\n` +
+      `*DAFTAR RELOKASI BARANG - SKYINVENTORY*\n` +
       `No. Dokumen: *${batch.batch_code}*\n` +
       `Status: *${actionLabel}*\n` +
-      `Penerima / Peminjam: *${recipient}*\n` +
+      `Penerima / Lokasi Relokasi: *${recipient}*\n` +
       `Tanggal: ${dateStr}\n` +
       (batch.expected_return_date ? `Estimasi Kembali: ${batch.expected_return_date}\n` : '') +
       (batch.notes ? `Keterangan: ${batch.notes}\n` : '') +
@@ -660,7 +734,7 @@ export default function RentPage() {
       `${itemsList}\n\n` +
       (batch.image_url ? `Foto Bukti Fisik:\n${batch.image_url}\n\n` : '') +
       `Diproses oleh: ${batch.actor_name || currentUser?.name || 'IT Support'}\n` +
-      `_SkyConnection Mandiri - Asset Central Management_`
+      `_SkyInventory - Asset Central Management_`
     );
   };
 
@@ -670,7 +744,7 @@ export default function RentPage() {
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: `Surat Jalan ${batch.batch_code} - SkyConnection`,
+          title: `Daftar Relokasi ${batch.batch_code} - SkyInventory`,
           text,
         });
         return;
@@ -693,59 +767,72 @@ export default function RentPage() {
     const text = getShareText(batch);
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(text).then(() => {
-        showToast('Ringkasan Surat Jalan disalin ke clipboard!', 'success');
+        showToast('Ringkasan Daftar Relokasi disalin ke clipboard!', 'success');
       });
     }
   };
 
-  // Download standalone HTML document of Surat Jalan
-  const handleDownloadSuratJalan = (batch: any) => {
+  // DIRECT A4 PDF DOWNLOAD (Tanpa lewat print browser)
+  const handleDownloadDirectPDF = async (batch: any) => {
     const el = document.getElementById('printable-surat-jalan');
     if (!el) return;
 
-    const htmlContent = `<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Surat Jalan ${batch.batch_code} - SkyConnection Mandiri</title>
-  <style>
-    @page { size: A4 portrait; margin: 12mm; }
-    * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #1e293b; background: #fff; margin: 0; padding: 20px; line-height: 1.5; }
-    .print-bar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px; }
-    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; text-decoration: none; border: none; }
-    .btn-print { background: #2563eb; color: #fff; }
-    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; }
-    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
-    th { background: #f8fafc; font-weight: bold; color: #334155; }
-    .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
-    .badge-allocate { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
-    .badge-revocate { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
-    @media print {
-      .print-bar { display: none !important; }
-      body { padding: 0 !important; }
-    }
-  </style>
-</head>
-<body>
-  <div class="print-bar">
-    <button onclick="window.print()" class="btn btn-print">🖨️ Cetak / Simpan PDF (A4)</button>
-  </div>
-  ${el.innerHTML}
-</body>
-</html>`;
+    try {
+      setDownloadingPdf(true);
+      showToast('Sedang membuat file PDF A4 langsung...', 'success');
 
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Surat_Jalan_${batch.batch_code || 'Document'}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    showToast('File Surat Jalan berhasil didownload!', 'success');
+      const { default: jsPDF } = await import('jspdf');
+      const { default: html2canvas } = await import('html2canvas');
+
+      const canvas = await html2canvas(el, {
+        scale: 2, // 2x sharp resolution
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
+      const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
+      const margin = 10; // 10mm margins
+      const contentWidth = pdfWidth - margin * 2;
+      const contentHeight = (canvas.height * contentWidth) / canvas.width;
+
+      if (contentHeight <= pdfHeight - margin * 2) {
+        // Fits within single A4 page
+        pdf.addImage(imgData, 'JPEG', margin, margin, contentWidth, contentHeight);
+      } else {
+        // Multi-page A4
+        let heightLeft = contentHeight;
+        let position = margin;
+
+        pdf.addImage(imgData, 'JPEG', margin, position, contentWidth, contentHeight);
+        heightLeft -= (pdfHeight - margin * 2);
+
+        while (heightLeft > 0) {
+          position = heightLeft - contentHeight + margin;
+          pdf.addPage();
+          pdf.addImage(imgData, 'JPEG', margin, position, contentWidth, contentHeight);
+          heightLeft -= (pdfHeight - margin * 2);
+        }
+      }
+
+      const fileName = `Daftar_Relokasi_${batch.batch_code || 'Document'}.pdf`;
+      pdf.save(fileName);
+      showToast('File PDF A4 berhasil diunduh langsung!', 'success');
+    } catch (err: any) {
+      console.error('Error generating direct PDF:', err);
+      showToast('Gagal membuat PDF langsung: ' + (err.message || 'error'), 'error');
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   // Filtered Batches for Table
@@ -813,15 +900,15 @@ export default function RentPage() {
                 <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
                   <span>Rent & Equipment Dispatch</span>
                   <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                    Mandiri Central
+                    SkyInventory Central
                   </span>
                 </h1>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {viewMode === 'list'
                     ? 'Laman Utama: Riwayat alokasi peminjaman (Allocate) dan pengembalian (Revocate) masal.'
                     : mode === 'allocate'
-                    ? 'Bulk Scan & Alokasi Peminjaman Peralatan kepada Penerima Resmi.'
-                    : 'Bulk Scan & Pengembalian Peralatan Kembali ke Gudang / Central.'}
+                    ? 'Bulk Scan & Alokasi Relokasi Peralatan kepada Penerima Resmi.'
+                    : 'Bulk Scan & Pengembalian Relokasi Peralatan Kembali ke Gudang / Central.'}
                 </p>
               </div>
             </div>
@@ -832,7 +919,7 @@ export default function RentPage() {
                 <button
                   type="button"
                   onClick={fetchBatches}
-                  className="p-2 text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+                  className="p-2 text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
                   title="Segarkan data riwayat"
                 >
                   <RefreshCw className={`w-4 h-4 ${batchesLoading ? 'animate-spin text-blue-600' : ''}`} />
@@ -869,7 +956,7 @@ export default function RentPage() {
                 <button
                   type="button"
                   onClick={() => setViewMode('list')}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   <span>Kembali ke Riwayat Rent</span>
@@ -880,7 +967,7 @@ export default function RentPage() {
                   <button
                     type="button"
                     onClick={() => setMode('allocate')}
-                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                       mode === 'allocate'
                         ? 'bg-white text-blue-700 shadow-sm'
                         : 'text-slate-600 hover:text-slate-900'
@@ -892,7 +979,7 @@ export default function RentPage() {
                   <button
                     type="button"
                     onClick={() => setMode('revocate')}
-                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                       mode === 'revocate'
                         ? 'bg-white text-emerald-700 shadow-sm'
                         : 'text-slate-600 hover:text-slate-900'
@@ -920,7 +1007,7 @@ export default function RentPage() {
               <div>
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Transaksi</p>
                 <p className="text-xl font-black text-slate-900">{batches.length}</p>
-                <p className="text-[10px] text-slate-500">Surat Jalan tersimpan</p>
+                <p className="text-[10px] text-slate-500">Daftar Relokasi tersimpan</p>
               </div>
             </div>
 
@@ -931,7 +1018,7 @@ export default function RentPage() {
               <div>
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Allocated</p>
                 <p className="text-xl font-black text-indigo-700">{allocateCount}</p>
-                <p className="text-[10px] text-slate-500">Peminjaman barang</p>
+                <p className="text-[10px] text-slate-500">Peminjaman / Relokasi</p>
               </div>
             </div>
 
@@ -969,7 +1056,7 @@ export default function RentPage() {
                   type="text"
                   value={batchSearchTerm}
                   onChange={(e) => setBatchSearchTerm(e.target.value)}
-                  placeholder="Cari No Surat Jalan, Nama Barang, Kategori, Penerima..."
+                  placeholder="Cari No Dokumen, Nama Barang, Kategori, Penerima..."
                   className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 />
                 {batchSearchTerm && (
@@ -988,7 +1075,7 @@ export default function RentPage() {
                 <button
                   type="button"
                   onClick={() => setBatchFilterStatus('ALL')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                     batchFilterStatus === 'ALL'
                       ? 'bg-slate-900 text-white'
                       : 'text-slate-600 hover:text-slate-900'
@@ -999,7 +1086,7 @@ export default function RentPage() {
                 <button
                   type="button"
                   onClick={() => setBatchFilterStatus('ALLOCATE')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                     batchFilterStatus === 'ALLOCATE'
                       ? 'bg-blue-600 text-white'
                       : 'text-slate-600 hover:text-slate-900'
@@ -1010,7 +1097,7 @@ export default function RentPage() {
                 <button
                   type="button"
                   onClick={() => setBatchFilterStatus('REVOCATE')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                     batchFilterStatus === 'REVOCATE'
                       ? 'bg-emerald-600 text-white'
                       : 'text-slate-600 hover:text-slate-900'
@@ -1029,13 +1116,13 @@ export default function RentPage() {
                     <th className="py-3 px-3.5 text-center w-12">#</th>
                     <th className="py-3 px-3.5">Waktu & Tanggal</th>
                     <th className="py-3 px-3.5">Status / Aksi</th>
-                    <th className="py-3 px-3.5">No. Surat Jalan</th>
-                    <th className="py-3 px-3.5">Penerima / Peminjam</th>
+                    <th className="py-3 px-3.5">No. Dokumen</th>
+                    <th className="py-3 px-3.5">Penerima / Lokasi</th>
                     <th className="py-3 px-3.5">Kategori Aset</th>
                     <th className="py-3 px-3.5">Rincian Barang</th>
                     <th className="py-3 px-3.5">Bukti & TTD</th>
                     <th className="py-3 px-3.5">Petugas</th>
-                    <th className="py-3 px-3.5 text-center w-36">Aksi</th>
+                    <th className="py-3 px-3.5 text-center w-36">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1068,7 +1155,7 @@ export default function RentPage() {
                                 setMode('allocate');
                                 setViewMode('dispatch');
                               }}
-                              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition"
+                              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition cursor-pointer"
                             >
                               + Add New Allocated
                             </button>
@@ -1078,7 +1165,7 @@ export default function RentPage() {
                                 setMode('revocate');
                                 setViewMode('dispatch');
                               }}
-                              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition"
+                              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition cursor-pointer"
                             >
                               + Add New Revocated
                             </button>
@@ -1171,7 +1258,7 @@ export default function RentPage() {
                                   <button
                                     type="button"
                                     onClick={() => setExpandedBatchId(isExpanded ? null : b.id)}
-                                    className="text-blue-600 hover:text-blue-800 text-[11px] font-semibold flex items-center gap-0.5 hover:underline"
+                                    className="text-blue-600 hover:text-blue-800 text-[11px] font-semibold flex items-center gap-0.5 hover:underline cursor-pointer"
                                   >
                                     <span>{isExpanded ? 'Tutup' : 'Rincian'}</span>
                                     {isExpanded ? (
@@ -1194,7 +1281,7 @@ export default function RentPage() {
                                   <button
                                     type="button"
                                     onClick={() => setZoomImageUrl(b.image_url || null)}
-                                    className="w-8 h-8 rounded-lg overflow-hidden border border-slate-300 hover:border-blue-500 transition shadow-xs group/img relative"
+                                    className="w-8 h-8 rounded-lg overflow-hidden border border-slate-300 hover:border-blue-500 transition shadow-xs group/img relative cursor-pointer"
                                     title="Klik untuk zoom foto serah terima"
                                   >
                                     <img
@@ -1229,40 +1316,38 @@ export default function RentPage() {
                               {b.actor_name?.split('@')[0] || 'IT Support'}
                             </td>
 
-                            {/* Action Buttons: Preview / Print, Download, Share */}
+                            {/* ACTIONS COLUMN: View, Edit, Delete (Matching Asset Table Style) */}
                             <td className="py-3 px-3.5 text-center whitespace-nowrap">
-                              <div className="flex items-center justify-center gap-1.5">
-                                {/* Preview Surat Jalan Modal */}
+                              <div className="flex items-center justify-center gap-2">
+                                {/* 1. View Button (Opens Document Preview Modal with Download, Share, Print) */}
                                 <button
                                   type="button"
                                   onClick={() => openBatchSuratJalan(b)}
-                                  className="p-1.5 text-blue-600 hover:text-white hover:bg-blue-600 border border-blue-200 rounded-lg transition shadow-2xs"
-                                  title="Lihat / Cetak Surat Jalan"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer active:scale-98"
+                                  title="Lihat Pratinjau Dokumen Relokasi"
                                 >
-                                  <Printer className="w-3.5 h-3.5" />
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>View</span>
                                 </button>
 
-                                {/* Direct Download */}
+                                {/* 2. Edit Button (Opens Edit Batch Modal) */}
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    openBatchSuratJalan(b);
-                                    setTimeout(() => handleDownloadSuratJalan(b), 300);
-                                  }}
-                                  className="p-1.5 text-slate-600 hover:text-white hover:bg-slate-800 border border-slate-200 rounded-lg transition shadow-2xs"
-                                  title="Download File Surat Jalan"
+                                  onClick={() => openEditBatch(b)}
+                                  className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 rounded-lg transition shadow-2xs cursor-pointer active:scale-98"
+                                  title="Edit Data Batch Relokasi"
                                 >
-                                  <Download className="w-3.5 h-3.5" />
+                                  <Pencil className="w-3.5 h-3.5" />
                                 </button>
 
-                                {/* Share Button */}
+                                {/* 3. Delete Button */}
                                 <button
                                   type="button"
-                                  onClick={() => handleShare(b)}
-                                  className="p-1.5 text-emerald-600 hover:text-white hover:bg-emerald-600 border border-emerald-200 rounded-lg transition shadow-2xs"
-                                  title="Bagikan via WhatsApp / Share"
+                                  onClick={() => handleDeleteBatch(b)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded-lg transition shadow-2xs cursor-pointer active:scale-98"
+                                  title="Hapus Data Batch Relokasi"
                                 >
-                                  <Share2 className="w-3.5 h-3.5" />
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </td>
@@ -1513,7 +1598,7 @@ export default function RentPage() {
                     <button
                       type="button"
                       onClick={() => setStagedAssets([])}
-                      className="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 hover:underline"
+                      className="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
                     >
                       <Trash2 className="w-3 h-3" /> Bersihkan Semua
                     </button>
@@ -1558,7 +1643,7 @@ export default function RentPage() {
                             <button
                               type="button"
                               onClick={() => removeAssetFromStaging(asset.id)}
-                              className="p-1 text-slate-300 hover:text-rose-600 rounded hover:bg-rose-50 transition"
+                              className="p-1 text-slate-300 hover:text-rose-600 rounded hover:bg-rose-50 transition cursor-pointer"
                               title="Hapus dari antrean"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1578,7 +1663,7 @@ export default function RentPage() {
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4 text-blue-600" />
-                    <h3 className="text-sm font-bold text-slate-800">Detail Serah Terima</h3>
+                    <h3 className="text-sm font-bold text-slate-800">Detail Relokasi / Serah Terima</h3>
                   </div>
                   <span
                     className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wide ${
@@ -1595,13 +1680,13 @@ export default function RentPage() {
                 {mode === 'allocate' && (
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Diberikan Kepada / Peminjam <span className="text-rose-500">*</span>
+                      Penerima / Lokasi Relokasi <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={assignedTo}
                       onChange={(e) => setAssignedTo(e.target.value)}
-                      placeholder="Nama pegawai, divisi, atau vendor..."
+                      placeholder="Nama pegawai, divisi, atau lokasi relokasi..."
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                       required
                     />
@@ -1637,7 +1722,7 @@ export default function RentPage() {
                     rows={2}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Contoh: Kebutuhan instalasi server di site Ragunan..."
+                    placeholder="Contoh: Relokasi kebutuhan instalasi perangkat jaringan di site Ragunan..."
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none"
                   ></textarea>
                 </div>
@@ -1646,25 +1731,25 @@ export default function RentPage() {
                 <HandoverPhotoCapture
                   value={capturedImage}
                   onChange={(val) => setCapturedImage(val)}
-                  label="Foto Bukti Serah Terima"
+                  label="Foto Bukti Fisik Relokasi"
                 />
 
                 {/* Digital Signature Pad */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-bold text-slate-700">Tanda Tangan Penerima / Peminjam</label>
+                    <label className="text-xs font-bold text-slate-700">Tanda Tangan Penerima Relokasi</label>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={undoCanvas}
-                        className="text-[11px] text-slate-500 hover:text-slate-800 font-semibold flex items-center gap-0.5"
+                        className="text-[11px] text-slate-500 hover:text-slate-800 font-semibold flex items-center gap-0.5 cursor-pointer"
                       >
                         <Undo2 className="w-3 h-3" /> Undo
                       </button>
                       <button
                         type="button"
                         onClick={clearCanvas}
-                        className="text-[11px] text-rose-500 hover:text-rose-700 font-semibold"
+                        className="text-[11px] text-rose-500 hover:text-rose-700 font-semibold cursor-pointer"
                       >
                         Clear
                       </button>
@@ -1718,57 +1803,62 @@ export default function RentPage() {
         </div>
       )}
 
-      {/* MODAL / SURAT JALAN PRINT PREVIEW (Swipeable on Mobile + Download + Share) */}
+      {/* VIEW MODAL: PRATINJAU DOKUMEN RELOKASI (Daftar Relokasi Barang - A4 Swipeable) */}
       {showSuratJalanModal && executedBatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/80 backdrop-blur-sm animate-fade-in print:p-0 print:bg-white print:static overflow-hidden">
           <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden print:border-none print:shadow-none print:w-full print:max-w-none print:max-h-none">
             {/* Modal Header (Hidden during Print) */}
             <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 bg-slate-900 text-white print:hidden shrink-0">
               <div className="flex items-center gap-2 min-w-0">
-                <Printer className="w-4 h-4 text-blue-400 shrink-0" />
+                <FileText className="w-4 h-4 text-blue-400 shrink-0" />
                 <span className="text-xs sm:text-sm font-bold truncate">
-                  Pratinjau Surat Jalan & Bukti Serah Terima
+                  Pratinjau Daftar Relokasi Barang & Bukti Fisik
                 </span>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2">
-                {/* Share Button in Header */}
+                {/* 1. DIRECT A4 PDF DOWNLOAD (Tanpa lewat print browser) */}
+                <button
+                  type="button"
+                  onClick={() => handleDownloadDirectPDF(executedBatch)}
+                  disabled={downloadingPdf}
+                  className="px-2.5 sm:px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer disabled:opacity-70"
+                  title="Langsung Download PDF A4"
+                >
+                  {downloadingPdf ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5" />
+                  )}
+                  <span>{downloadingPdf ? 'Membuat PDF...' : 'Download PDF (A4)'}</span>
+                </button>
+
+                {/* 2. Share Button */}
                 <button
                   type="button"
                   onClick={() => handleShare(executedBatch)}
                   className="px-2.5 sm:px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shadow-xs cursor-pointer"
-                  title="Bagikan Surat Jalan"
+                  title="Bagikan Dokumen Relokasi"
                 >
                   <Share2 className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Bagikan</span>
                 </button>
 
-                {/* Download Button in Header */}
-                <button
-                  type="button"
-                  onClick={() => handleDownloadSuratJalan(executedBatch)}
-                  className="px-2.5 sm:px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shadow-xs cursor-pointer"
-                  title="Unduh File Surat Jalan"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Download</span>
-                </button>
-
-                {/* Print / Save as PDF Button in Header */}
+                {/* 3. Print Button */}
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-2.5 sm:px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shadow-xs cursor-pointer"
-                  title="Cetak atau Simpan sebagai PDF"
+                  className="px-2.5 sm:px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shadow-xs cursor-pointer"
+                  title="Cetak via Printer"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>Cetak / PDF</span>
+                  <span className="hidden sm:inline">Print</span>
                 </button>
 
                 {/* Close Button */}
                 <button
                   type="button"
                   onClick={() => setShowSuratJalanModal(false)}
-                  className="p-1.5 text-slate-400 hover:text-white rounded-lg transition"
+                  className="p-1.5 text-slate-400 hover:text-white rounded-lg transition cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1783,20 +1873,20 @@ export default function RentPage() {
 
             {/* Horizontal & Vertical Touch-Scrollable Body for Full Swipeability on Mobile */}
             <div className="flex-1 overflow-x-auto overflow-y-auto p-2 sm:p-6 bg-slate-100/70 touch-pan-x touch-pan-y overscroll-contain">
-              {/* Official A4 Document Layout (min-w ensures proper proportion on mobile without crushing) */}
+              {/* Official A4 Document Layout */}
               <div
                 className="min-w-[620px] sm:min-w-0 max-w-3xl mx-auto bg-white p-5 sm:p-10 rounded-xl shadow-xs border border-slate-200 text-slate-800 font-sans print:border-none print:shadow-none print:p-0 print:min-w-0 print:max-w-none"
                 id="printable-surat-jalan"
               >
-                {/* Header Letterhead */}
+                {/* Header Letterhead (Brand: SkyInventory) */}
                 <div className="border-b-2 border-slate-900 pb-4 flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-800 flex items-center justify-center text-white font-black text-xl shadow-sm shrink-0">
-                      SK
+                      SI
                     </div>
                     <div>
                       <h2 className="text-lg font-black tracking-tight text-slate-900 uppercase">
-                        SkyConnection Mandiri
+                        SkyInventory
                       </h2>
                       <p className="text-[11px] text-slate-500">Asset Central & Enterprise Equipment Management</p>
                       <p className="text-[11px] text-slate-400">Jl. Gotong Royong I No.50, Ragunan, Jakarta Selatan</p>
@@ -1811,7 +1901,7 @@ export default function RentPage() {
                           : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                       }`}
                     >
-                      {executedBatch.action === 'allocate' ? 'Surat Jalan (Allocate)' : 'Tanda Terima (Revocate)'}
+                      {executedBatch.action === 'allocate' ? 'Daftar Relokasi Barang' : 'Daftar Pengembalian Relokasi'}
                     </span>
                     <p className="text-xs font-bold text-slate-900 mt-1.5 font-mono">{executedBatch.batch_code}</p>
                     <p className="text-[11px] text-slate-500">Tanggal: {executedBatch.date}</p>
@@ -1822,7 +1912,7 @@ export default function RentPage() {
                 <div className="grid grid-cols-2 gap-4 my-5 text-xs">
                   <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-1">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Diberikan Kepada / Peminjam
+                      Penerima / Lokasi Relokasi
                     </p>
                     <p className="font-bold text-slate-900 text-sm">{executedBatch.assigned_to || '-'}</p>
                     <p className="text-slate-600">Departemen / Penerima Resmi</p>
@@ -1838,7 +1928,7 @@ export default function RentPage() {
                       Keterangan / Keperluan
                     </p>
                     <p className="text-slate-700">
-                      {executedBatch.notes || 'Peminjaman operasional aset SkyConnection.'}
+                      {executedBatch.notes || 'Relokasi operasional aset SkyInventory.'}
                     </p>
                     <p className="text-slate-500 text-[11px] pt-1">
                       Diproses Oleh: <span className="font-semibold">{executedBatch.actor_name || currentUser?.name || 'IT Support'}</span>
@@ -1849,7 +1939,7 @@ export default function RentPage() {
                 {/* Itemized Assets Table */}
                 <div className="my-5">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                    Daftar Peralatan & Aset Diserahkan ({executedBatch.assets.length} Item)
+                    Daftar Peralatan & Aset Relokasi ({executedBatch.assets.length} Item)
                   </h4>
                   <table className="w-full border-collapse border border-slate-300 text-xs">
                     <thead>
@@ -1895,7 +1985,7 @@ export default function RentPage() {
                       title="Klik untuk zoom"
                     />
                     <div className="text-xs">
-                      <p className="font-bold text-slate-800">Lampiran Bukti Fisik Serah Terima</p>
+                      <p className="font-bold text-slate-800">Lampiran Bukti Fisik Relokasi</p>
                       <p className="text-slate-500 text-[11px] mt-0.5">
                         Foto dokumentasi kondisi fisik peralatan saat diserahkan/diterima.
                       </p>
@@ -1911,13 +2001,13 @@ export default function RentPage() {
                   <div className="text-center space-y-2">
                     <p className="text-xs font-bold text-slate-700">Diserahkan Oleh,</p>
                     <div className="h-16 flex items-center justify-center">
-                      <div className="px-4 py-1.5 border border-slate-200 rounded-lg bg-slate-50 text-[11px] font-bold text-slate-500">
-                        IT Support Mandiri
+                      <div className="px-4 py-1.5 border border-slate-200 rounded-lg bg-slate-50 text-[11px] font-bold text-slate-600">
+                        SkyInventory IT Support
                       </div>
                     </div>
                     <div className="border-t border-slate-400 w-44 mx-auto pt-1">
                       <p className="text-xs font-bold text-slate-900">{executedBatch.actor_name || currentUser?.name || 'Petugas IT Support'}</p>
-                      <p className="text-[10px] text-slate-400">SkyConnection</p>
+                      <p className="text-[10px] text-slate-400">SkyInventory</p>
                     </div>
                   </div>
 
@@ -1936,7 +2026,7 @@ export default function RentPage() {
                     </div>
                     <div className="border-t border-slate-400 w-44 mx-auto pt-1">
                       <p className="text-xs font-bold text-slate-900">{executedBatch.assigned_to || 'Penerima'}</p>
-                      <p className="text-[10px] text-slate-400">Peminjam / Penerima Barang</p>
+                      <p className="text-[10px] text-slate-400">Penerima Relokasi Barang</p>
                     </div>
                   </div>
                 </div>
@@ -1945,7 +2035,7 @@ export default function RentPage() {
 
             {/* Modal Footer with Actions (Hidden during Print) */}
             <div className="px-4 sm:px-6 py-3 bg-slate-100 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs print:hidden shrink-0">
-              <span className="text-slate-500 font-mono text-[11px]">Format Standar A4 - Siap Cetak & Bagikan</span>
+              <span className="text-slate-500 font-mono text-[11px]">Format Standar A4 - Siap Download & Bagikan</span>
               <div className="flex flex-wrap items-center gap-2">
                 {/* Share to WhatsApp */}
                 <button
@@ -1965,22 +2055,28 @@ export default function RentPage() {
                   <Copy className="w-3.5 h-3.5" /> Salin Ringkasan
                 </button>
 
-                {/* Download Document */}
+                {/* Direct A4 PDF Download Button */}
                 <button
                   type="button"
-                  onClick={() => handleDownloadSuratJalan(executedBatch)}
-                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold flex items-center gap-1.5 transition cursor-pointer"
+                  onClick={() => handleDownloadDirectPDF(executedBatch)}
+                  disabled={downloadingPdf}
+                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-1.5 transition shadow-sm cursor-pointer disabled:opacity-75"
                 >
-                  <Download className="w-3.5 h-3.5" /> Download File
+                  {downloadingPdf ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5" />
+                  )}
+                  <span>{downloadingPdf ? 'Membuat PDF...' : 'Download PDF (A4)'}</span>
                 </button>
 
-                {/* Print Now */}
+                {/* Print Button */}
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-1.5 transition cursor-pointer"
+                  className="px-3.5 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-xl font-bold flex items-center gap-1.5 transition cursor-pointer"
                 >
-                  <Printer className="w-3.5 h-3.5" /> Cetak / PDF
+                  <Printer className="w-3.5 h-3.5" /> Print
                 </button>
 
                 {/* Close Button */}
@@ -1990,6 +2086,100 @@ export default function RentPage() {
                   className="px-3 py-1.5 border border-slate-300 bg-white hover:bg-slate-50 rounded-xl font-semibold transition cursor-pointer"
                 >
                   Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT BATCH MODAL */}
+      {editingBatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 bg-slate-900 text-white">
+              <div className="flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-blue-400" />
+                <h3 className="text-sm font-bold">Edit Data Relokasi</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingBatch(null)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Nomor Dokumen</span>
+                <span className="font-mono font-bold text-slate-800 text-sm bg-slate-100 px-2.5 py-1 rounded border border-slate-200 inline-block">
+                  {editingBatch.batch_code}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Penerima / Lokasi Relokasi <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editAssignedTo}
+                  onChange={(e) => setEditAssignedTo(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 transition font-medium"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Estimasi Tanggal Kembali
+                </label>
+                <input
+                  type="date"
+                  value={editReturnDate}
+                  onChange={(e) => setEditReturnDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Keterangan / Keperluan
+                </label>
+                <textarea
+                  rows={3}
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none"
+                  placeholder="Catatan keperluan relokasi barang..."
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingBatch(null)}
+                  className="px-4 py-2 border border-slate-300 text-slate-600 hover:bg-slate-50 rounded-xl font-bold transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEdit}
+                  disabled={savingEdit || !editAssignedTo.trim()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {savingEdit ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Menyimpan...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" /> Simpan Perubahan
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -2007,7 +2197,7 @@ export default function RentPage() {
             <button
               type="button"
               onClick={() => setZoomImageUrl(null)}
-              className="absolute top-4 right-4 p-1.5 bg-black/60 text-white hover:bg-black rounded-full transition z-10"
+              className="absolute top-4 right-4 p-1.5 bg-black/60 text-white hover:bg-black rounded-full transition z-10 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
