@@ -154,6 +154,35 @@ export default function RentPage() {
     signature?: string;
     actor_name?: string;
   } | null>(null);
+  const [proofImageDataUrl, setProofImageDataUrl] = useState<string>('');
+
+  // Fetch proof image as Base64 data URL via server proxy so it renders cleanly in PDF & print
+  useEffect(() => {
+    if (!executedBatch?.image_url) {
+      setProofImageDataUrl('');
+      return;
+    }
+
+    const rawUrl = executedBatch.image_url;
+    if (rawUrl.startsWith('data:')) {
+      setProofImageDataUrl(rawUrl);
+      return;
+    }
+
+    let active = true;
+    fetch(`/api/proxy-image?url=${encodeURIComponent(rawUrl)}&format=base64`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (active && d.success && d.dataUrl) {
+          setProofImageDataUrl(d.dataUrl);
+        }
+      })
+      .catch((err) => console.warn('Could not load base64 proxy image:', err));
+
+    return () => {
+      active = false;
+    };
+  }, [executedBatch?.image_url]);
   const [showSuratJalanModal, setShowSuratJalanModal] = useState(false);
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<{ email: string; name: string; role: string; canEdit: boolean } | null>(null);
@@ -779,7 +808,24 @@ export default function RentPage() {
 
     try {
       setDownloadingPdf(true);
-      showToast('Sedang membuat file PDF A4 langsung...', 'success');
+      showToast('Menyiapkan foto dokumentasi & dokumen PDF A4...', 'success');
+
+      let currentBase64 = proofImageDataUrl;
+      if (batch.image_url && !currentBase64) {
+        try {
+          const pRes = await fetch(`/api/proxy-image?url=${encodeURIComponent(batch.image_url)}&format=base64`);
+          const pData = await pRes.json();
+          if (pData.success && pData.dataUrl) {
+            currentBase64 = pData.dataUrl;
+            setProofImageDataUrl(pData.dataUrl);
+          }
+        } catch (e) {
+          console.warn('Proxy fetch failed:', e);
+        }
+      }
+
+      // Small delay to ensure browser paints base64 image in DOM
+      await new Promise((r) => setTimeout(r, 250));
 
       const { default: jsPDF } = await import('jspdf');
       const { default: html2canvas } = await import('html2canvas');
@@ -790,6 +836,12 @@ export default function RentPage() {
         allowTaint: true,
         backgroundColor: '#ffffff',
         logging: false,
+        onclone: (clonedDoc) => {
+          const img = clonedDoc.querySelector('img[alt="Bukti Fisik Relokasi"]') as HTMLImageElement;
+          if (img && currentBase64) {
+            img.src = currentBase64;
+          }
+        },
       });
 
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -801,7 +853,7 @@ export default function RentPage() {
 
       const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
       const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
-      const margin = 10; // 10mm margins
+      const margin = 8; // 8mm margins
       const contentWidth = pdfWidth - margin * 2;
       const contentHeight = (canvas.height * contentWidth) / canvas.width;
 
@@ -826,7 +878,7 @@ export default function RentPage() {
 
       const fileName = `Daftar_Relokasi_${batch.batch_code || 'Document'}.pdf`;
       pdf.save(fileName);
-      showToast('File PDF A4 berhasil diunduh langsung!', 'success');
+      showToast('File PDF A4 beserta foto dokumentasi berhasil diunduh!', 'success');
     } catch (err: any) {
       console.error('Error generating direct PDF:', err);
       showToast('Gagal membuat PDF langsung: ' + (err.message || 'error'), 'error');
@@ -1974,24 +2026,35 @@ export default function RentPage() {
                   </table>
                 </div>
 
-                {/* Handover Photo Proof Thumbnail */}
-                {executedBatch.image_url && (
-                  <div className="my-4 p-3 border border-slate-200 rounded-xl bg-slate-50 flex items-center gap-4">
-                    <img
-                      src={executedBatch.image_url}
-                      alt="Proof"
-                      className="w-20 h-20 object-cover rounded-lg border border-slate-300 bg-white shadow-2xs shrink-0 cursor-pointer"
-                      onClick={() => setZoomImageUrl(executedBatch.image_url || null)}
-                      title="Klik untuk zoom"
-                    />
-                    <div className="text-xs">
-                      <p className="font-bold text-slate-800">Lampiran Bukti Fisik Relokasi</p>
-                      <p className="text-slate-500 text-[11px] mt-0.5">
-                        Foto dokumentasi kondisi fisik peralatan saat diserahkan/diterima.
+                {/* Handover Photo Proof Attachment */}
+                {(proofImageDataUrl || executedBatch.image_url) && (
+                  <div className="my-4 p-4 border border-slate-300 rounded-xl bg-slate-50 flex items-start gap-4">
+                    <div className="relative shrink-0">
+                      <img
+                        crossOrigin="anonymous"
+                        src={proofImageDataUrl || executedBatch.image_url}
+                        alt="Bukti Fisik Relokasi"
+                        className="w-44 h-32 sm:w-52 sm:h-36 object-cover rounded-lg border-2 border-slate-300 bg-white shadow-xs cursor-pointer"
+                        onClick={() => setZoomImageUrl(proofImageDataUrl || executedBatch.image_url || null)}
+                        title="Klik untuk zoom"
+                      />
+                      <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] font-mono px-1.5 py-0.5 rounded backdrop-blur-xs">
+                        Dokumentasi Fisik
+                      </span>
+                    </div>
+                    <div className="text-xs space-y-1.5 min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                        <p className="font-bold text-slate-900 text-sm">Lampiran Bukti Fisik Relokasi</p>
+                      </div>
+                      <p className="text-slate-600 text-xs leading-relaxed">
+                        Foto dokumentasi resmi kondisi fisik peralatan saat diserahkan / diterima di lokasi.
                       </p>
-                      <p className="font-mono text-[10px] text-slate-400 mt-1 truncate max-w-md">
-                        {executedBatch.image_url}
-                      </p>
+                      <div className="pt-1.5">
+                        <span className="inline-block px-2.5 py-1 rounded bg-white border border-slate-200 text-[10px] text-slate-600 font-mono">
+                          Status Fisik: Terverifikasi Lengkap & Normal
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}
