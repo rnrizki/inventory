@@ -85,10 +85,11 @@ export async function POST(request: Request) {
       const recipientLabel = actionType === 'ALLOCATE' ? assigned_to.trim() : '-';
 
       // 2. Update status and assignment for all assets in bulk
+      const updatePlaceholders = asset_ids.map((_, i) => `$${i + 3}`).join(',');
       await client.query(
         `UPDATE assets
          SET asset_status = $1, assigned_to = $2, updated_at = CURRENT_TIMESTAMP
-         WHERE id IN (${placeholders})`,
+         WHERE id IN (${updatePlaceholders})`,
         [targetStatus, targetPerson, ...asset_ids]
       );
 
